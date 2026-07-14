@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+
+# scaffolded projects created while testing the CLI against a sample app
+.ux-audit/credentials.local.json
