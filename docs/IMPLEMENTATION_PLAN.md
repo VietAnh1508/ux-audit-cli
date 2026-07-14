@@ -1,6 +1,6 @@
 # ux-audit CLI — Implementation Plan
 
-**Status: Phase 0 — next: `src/commands/init.ts`**
+**Status: Phase 0 — next: `src/commands/app.ts` (`edit`)**
 (update this line in the same commit as whatever task you just closed out)
 
 This is the execution checklist. For *why* each decision was made, see
@@ -78,7 +78,7 @@ subprocess is verified by each phase's manual **Acceptance** check instead, not 
       read + validation; throw a friendly "run `ux-audit init` first" error when
       `.ux-audit/` is missing, not a raw ENOENT/zod error. `loadScenarios`,
       `loadCredentials`, `loadGuideline` stay stubs — those are Phase 1/3 tasks below.
-- [ ] `src/commands/init.ts` — `@clack/prompts` flow: scaffold `.ux-audit/{config.json,
+- [x] `src/commands/init.ts` — `@clack/prompts` flow: scaffold `.ux-audit/{config.json,
       app.json, scenarios/, guidelines/w3c.json}`, prompt for the `app.json` fields
       (name, one-paragraph description, core business model, target user segments —
       see `UX_AUDIT_CLI_PLAN.md` Decision 6), append `credentials.local.json` to
