@@ -1,6 +1,6 @@
 # ux-audit CLI — Implementation Plan
 
-**Status: Phase 0 — next: set up `vitest` (TDD, before any stub gets real logic)**
+**Status: Phase 0 — next: Playwright browser binaries (`pnpm exec playwright install`)**
 (update this line in the same commit as whatever task you just closed out)
 
 This is the execution checklist. For *why* each decision was made, see
@@ -65,7 +65,7 @@ subprocess is verified by each phase's manual **Acceptance** check instead, not 
 
 - [x] `package.json`, `tsconfig.json`, `.gitignore`
 - [x] `src/` skeleton — all modules present as typed stubs
-- [ ] `vitest` devDependency + `pnpm test` script — set this up **first**, before any
+- [x] `vitest` devDependency + `pnpm test` script — set this up **first**, before any
       stub below gets real logic (TDD, see Testing strategy above). No test files yet;
       this task is just the runner + script wired up and passing on an empty suite.
 - [ ] Playwright browser binaries — `pnpm exec playwright install` (chromium at
