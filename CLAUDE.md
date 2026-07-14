@@ -36,3 +36,20 @@ Anthropic API directly.
   should mean a new file implementing that interface, not interface changes.
 - Run `pnpm typecheck` after changes — the stub pattern above only holds together if
   the whole tree still typechecks.
+
+## Testing interactive (`@clack/prompts`) commands manually
+
+- `tmp/` (gitignored) is scratch space for manually exercising CLI commands against a
+  throwaway `.ux-audit/`. `mkdir -p tmp/<case-name>`, `cd` into it, and run the CLI
+  directly against that cwd: `(cd tmp/<case-name> && ../../node_modules/.bin/tsx
+  ../../src/cli.ts <cmd>)`.
+- Piped stdin (`printf '...' | tsx ...`) doesn't work — `@clack/prompts` reads raw
+  keypresses from a TTY, not lines. Use `expect` to drive a real pty:
+  ```
+  spawn ../../node_modules/.bin/tsx ../../src/cli.ts <cmd>
+  expect "some prompt text"
+  send "\r"          ;# accept the prefilled/default value
+  expect eof
+  ```
+  To edit a prefilled value: `send "\033\[F"` (Home) then repeat `send "\177"`
+  (Backspace) enough times to clear it before sending the replacement text.

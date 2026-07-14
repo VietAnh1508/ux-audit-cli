@@ -1,6 +1,6 @@
 # ux-audit CLI — Implementation Plan
 
-**Status: Phase 0 — next: `src/commands/app.ts` (`edit`)**
+**Status: Phase 0 — next: `ClaudeCodeBackend.isAvailable()`**
 (update this line in the same commit as whatever task you just closed out)
 
 This is the execution checklist. For *why* each decision was made, see
@@ -83,7 +83,7 @@ subprocess is verified by each phase's manual **Acceptance** check instead, not 
       (name, one-paragraph description, core business model, target user segments —
       see `UX_AUDIT_CLI_PLAN.md` Decision 6), append `credentials.local.json` to
       `.gitignore`
-- [ ] `src/commands/app.ts` (`edit`) — re-prompt and overwrite `app.json`
+- [x] `src/commands/app.ts` (`edit`) — re-prompt and overwrite `app.json`
 - [ ] `ClaudeCodeBackend.isAvailable()` in `src/backends/claude-code.ts` — detect
       `claude` on `PATH` and that it's logged in. **Needs a research spike**: there's no
       documented "am I logged in" flag; likely approach is checking for the CLI's local
