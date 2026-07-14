@@ -1,6 +1,6 @@
 # ux-audit CLI — Implementation Plan
 
-**Status: Phase 0 — next: Playwright browser binaries (`pnpm exec playwright install`)**
+**Status: Phase 0 — next: `src/config/loader.ts`**
 (update this line in the same commit as whatever task you just closed out)
 
 This is the execution checklist. For *why* each decision was made, see
@@ -68,7 +68,7 @@ subprocess is verified by each phase's manual **Acceptance** check instead, not 
 - [x] `vitest` devDependency + `pnpm test` script — set this up **first**, before any
       stub below gets real logic (TDD, see Testing strategy above). No test files yet;
       this task is just the runner + script wired up and passing on an empty suite.
-- [ ] Playwright browser binaries — `pnpm exec playwright install` (chromium at
+- [x] Playwright browser binaries — `pnpm exec playwright install` (chromium at
       minimum) is a required one-time per-machine setup step, not covered by `pnpm
       install`; already noted in `README.md`'s Local setup. Leaning toward
       document-only for v1 rather than having `ux-audit init` detect and auto-install
