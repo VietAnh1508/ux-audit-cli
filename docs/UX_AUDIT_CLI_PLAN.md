@@ -70,6 +70,21 @@ This plan replaces those four gaps with a CLI tool.
    field. Fed as shared context into both the journey-walk prompt (step 4 of the
    execution engine) and the report-synthesis call, so severity judgments and framing
    are business-aware, not just screen-by-screen.
+7. **Testing strategy: TDD, `vitest` as the runner.** `vitest` fits the existing ESM +
+   `NodeNext` + TS setup with no extra config, unlike Jest's ESM friction. It's set up
+   *before* any further implementation work — see `IMPLEMENTATION_PLAN.md` Phase 0,
+   first task — not added alongside the first module that needs it. From then on,
+   write the failing test before the implementation for every deterministic,
+   pure-logic module: `config/schema.ts` validation, `config/paths.ts`,
+   `config/loader.ts` parsing, `backends/resolve.ts` preference-order logic,
+   `report/render.ts` templating. Modules that need a real browser or a real
+   subprocess CLI (`browser/launch.ts`, `browser/mcp-bridge.ts`,
+   `backends/claude-code.ts`, `engine/run-scenario.ts`) are **not** unit-tested —
+   mocking a browser or a `claude -p` subprocess would test the mock, not the actual
+   integration risk (snapshot-driven login, MCP tool wiring, subprocess exit
+   handling) — so those stay covered by each phase's manual **Acceptance** check
+   instead. See `IMPLEMENTATION_PLAN.md` → Testing strategy for what's wired up and
+   when.
 
 ## Tech stack
 
@@ -78,7 +93,7 @@ This plan replaces those four gaps with a CLI tool.
 | Language/runtime     | TypeScript on Node.js                        | Matches the npx-distribution convention this ecosystem already uses                                                                                                                                                                                                                                                                          |
 | CLI framework        | `commander`                                  | Mature, minimal, standard for subcommands + flags                                                                                                                                                                                                                                                                                            |
 | Interactive prompts  | `@clack/prompts`                             | Clean multi-select checkbox UI for scenario picking                                                                                                                                                                                                                                                                                          |
-| Browser automation   | `playwright`                                 | Owns the browser process directly; launched with a CDP endpoint so the LLM backend's tool calls and our own deterministic steps (axe scan, screenshot capture) share the same live page                                                                                                                                                    |
+| Browser automation   | `playwright`                                 | Owns the browser process directly; launched with a CDP endpoint so the LLM backend's tool calls and our own deterministic steps (axe scan, screenshot capture) share the same live page. Requires a one-time `pnpm exec playwright install` per machine — browser binaries aren't pulled in by `pnpm install` alone                        |
 | Accessibility engine | `@axe-core/playwright` (`AxeBuilder`)        | `new AxeBuilder({page}).withTags([...]).analyze()` — real, deterministic rule engine (replaces the old skill's visual-estimate contrast check). Run directly by our code, not through the LLM                                                                                                                                              |
 | Browser tool exposure | `@playwright/mcp` (Microsoft, official)     | Reuse rather than hand-roll a tool bridge. Launched as a subprocess pointed at our own browser via `--cdp-endpoint`, with `--caps` scoped to safe navigation/input capabilities only (no `browser_evaluate`/arbitrary code execution). Confirmed current via context7 (`/microsoft/playwright-mcp`)                                        |
 | LLM backend (v1)     | Claude Code CLI (`claude -p`), non-interactive | Spawned as a subprocess with `--mcp-config` pointing at the `@playwright/mcp` server above and `--allowedTools` scoped to just that server's tools, so no blanket permission bypass is needed. Runs under the user's existing Claude subscription login — no `@anthropic-ai/sdk` calls, no separate API key, for the default path         |

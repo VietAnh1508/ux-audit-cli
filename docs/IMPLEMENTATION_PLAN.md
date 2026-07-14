@@ -1,5 +1,8 @@
 # ux-audit CLI — Implementation Plan
 
+**Status: Phase 0 — next: set up `vitest` (TDD, before any stub gets real logic)**
+(update this line in the same commit as whatever task you just closed out)
+
 This is the execution checklist. For *why* each decision was made, see
 [`UX_AUDIT_CLI_PLAN.md`](./UX_AUDIT_CLI_PLAN.md) — that file is the source of truth for
 architecture and rationale; this file just breaks it into ordered, file-level tasks.
@@ -49,13 +52,31 @@ IMPLEMENTATION_PLAN.md Phase N`) and typechecks (`pnpm typecheck`). The phases b
 fill them in, in order — each phase should leave `pnpm typecheck` clean and the
 stated acceptance check passing before moving to the next.
 
+## Testing strategy
+
+See `UX_AUDIT_CLI_PLAN.md` Decision 7 for the rationale. TDD: `vitest` gets set up as
+the very first Phase 0 task below, before `config/loader.ts` or any other stub gets
+real logic — write the failing test first, then implement against it. Only
+`config/schema.ts`, `config/paths.ts`, `config/loader.ts`, `backends/resolve.ts`, and
+`report/render.ts` get unit tests — everything that needs a real browser or a real CLI
+subprocess is verified by each phase's manual **Acceptance** check instead, not mocked.
+
 ## Phase 0 — Scaffolding & preflight
 
 - [x] `package.json`, `tsconfig.json`, `.gitignore`
 - [x] `src/` skeleton — all modules present as typed stubs
-- [ ] `src/config/loader.ts` — real fs read + `config/schema.ts` validation; throw a
-      friendly "run `ux-audit init` first" error when `.ux-audit/` is missing, not a
-      raw ENOENT/zod error
+- [ ] `vitest` devDependency + `pnpm test` script — set this up **first**, before any
+      stub below gets real logic (TDD, see Testing strategy above). No test files yet;
+      this task is just the runner + script wired up and passing on an empty suite.
+- [ ] Playwright browser binaries — `pnpm exec playwright install` (chromium at
+      minimum) is a required one-time per-machine setup step, not covered by `pnpm
+      install`; already noted in `README.md`'s Local setup. Leaning toward
+      document-only for v1 rather than having `ux-audit init` detect and auto-install
+      missing browsers — revisit if this trips people up in practice.
+- [ ] `src/config/loader.ts` — write the failing test(s) against `config/schema.ts`
+      validation first, then implement: real fs read + validation; throw a friendly
+      "run `ux-audit init` first" error when `.ux-audit/` is missing, not a raw
+      ENOENT/zod error
 - [ ] `src/commands/init.ts` — `@clack/prompts` flow: scaffold `.ux-audit/{config.json,
       app.json, scenarios/, guidelines/w3c.json}`, prompt for the `app.json` fields
       (name, one-paragraph description, core business model, target user segments —
