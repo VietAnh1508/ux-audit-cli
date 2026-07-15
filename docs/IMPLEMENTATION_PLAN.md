@@ -1,6 +1,6 @@
 # ux-audit CLI — Implementation Plan
 
-**Status: Phase 0 — next: `ClaudeCodeBackend.isAvailable()`**
+**Status: Phase 1 — next: scenario file format / `loadScenarios`**
 (update this line in the same commit as whatever task you just closed out)
 
 This is the execution checklist. For *why* each decision was made, see
@@ -84,12 +84,14 @@ subprocess is verified by each phase's manual **Acceptance** check instead, not 
       see `UX_AUDIT_CLI_PLAN.md` Decision 6), append `credentials.local.json` to
       `.gitignore`
 - [x] `src/commands/app.ts` (`edit`) — re-prompt and overwrite `app.json`
-- [ ] `ClaudeCodeBackend.isAvailable()` in `src/backends/claude-code.ts` — detect
-      `claude` on `PATH` and that it's logged in. **Needs a research spike**: there's no
-      documented "am I logged in" flag; likely approach is checking for the CLI's local
-      credential/session file, or a fast `claude -p` no-op call and checking for an auth
-      error vs. a real response — confirm against current `claude --help` /
-      `~/.claude` layout before committing to one.
+- [x] `ClaudeCodeBackend.isAvailable()` in `src/backends/claude-code.ts` — research
+      spike resolved: `claude auth status --json` is a documented subcommand that
+      prints `{"loggedIn": bool, ...}` instantly with no API call, so it beats both
+      options floated above (keychain/credential-file parsing is undocumented and
+      platform-split; a `claude -p` no-op call costs real tokens/time). Implementation
+      spawns it via `node:child_process` and collapses any failure (binary missing,
+      non-zero exit, bad JSON) to `false` — covers "not on PATH" and "not logged in"
+      with one code path.
 - **Acceptance**: `ux-audit init` on a throwaway directory produces a valid
   `.ux-audit/`; running `ux-audit run` with no scenarios yet gives a clear, actionable
   error instead of a stack trace.
