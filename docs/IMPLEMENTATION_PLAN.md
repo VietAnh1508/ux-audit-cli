@@ -1,6 +1,6 @@
 # ux-audit CLI — Implementation Plan
 
-**Status: Phase 1 — next: scenario file format / `loadScenarios`**
+**Status: Phase 1 — next: `src/commands/scenario.ts` (`add`)**
 (update this line in the same commit as whatever task you just closed out)
 
 This is the execution checklist. For *why* each decision was made, see
@@ -101,7 +101,7 @@ subprocess is verified by each phase's manual **Acceptance** check instead, not 
 Prove the Playwright-CDP-endpoint + `@playwright/mcp` + `claude -p` loop end to end for
 exactly one scenario, no picker, no concurrency.
 
-- [ ] Scenario file format — markdown, same field set as
+- [x] Scenario file format — markdown, same field set as
       `reference/ux-audit-skill/references/scenario-template.md` (App URL, App Name,
       App Persona, Auth, Session, Viewport, Output, free-text steps), except `Auth`
       takes a `credentialsRef` resolved from `credentials.local.json` instead of an

@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+function caseInsensitiveEnum<const T extends [string, ...string[]]>(values: T) {
+  return z.preprocess((value) => (typeof value === "string" ? value.toLowerCase() : value), z.enum(values));
+}
+
 export const AppOverviewSchema = z.object({
   name: z.string(),
   description: z.string(),
@@ -22,8 +26,8 @@ export const ScenarioConfigSchema = z.object({
   appName: z.string(),
   appPersona: z.string(),
   credentialsRef: z.string().optional(),
-  session: z.enum(["fresh", "authenticated"]).default("fresh"),
-  viewport: z.enum(["desktop", "mobile"]).default("desktop"),
+  session: caseInsensitiveEnum(["fresh", "authenticated"]).default("fresh"),
+  viewport: caseInsensitiveEnum(["desktop", "mobile"]).default("desktop"),
   output: z.string().optional(),
   steps: z.string(),
   selectorHint: z.string().optional(),

@@ -2,8 +2,8 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { resolveAppOverviewPath, resolveConfigPath, resolveUxAuditDir } from "./paths.js";
-import { ConfigLoadError, loadAppOverview, loadConfig } from "./loader.js";
+import { resolveAppOverviewPath, resolveConfigPath, resolveScenariosDir, resolveUxAuditDir } from "./paths.js";
+import { ConfigLoadError, loadAppOverview, loadConfig, loadScenarios } from "./loader.js";
 
 let cwd: string;
 
@@ -95,5 +95,156 @@ describe("loadAppOverview", () => {
     await writeUxAuditFile(cwd, resolveAppOverviewPath(cwd), JSON.stringify(overview));
 
     await expect(loadAppOverview(cwd)).resolves.toEqual(overview);
+  });
+});
+
+async function writeScenarioFile(cwd: string, fileName: string, contents: string): Promise<void> {
+  await mkdir(resolveScenariosDir(cwd), { recursive: true });
+  await writeFile(path.join(resolveScenariosDir(cwd), fileName), contents, "utf-8");
+}
+
+const FULL_SCENARIO = `# Core Voting Loop
+
+<!-- Short name for this journey -->
+
+**App URL:** http://localhost:3000
+**App Name:** MyApp
+**App Persona:** One sentence describing the app and who uses it.
+**Auth:** default
+
+<!-- Auth: use a dedicated test account created solely for this audit.
+     Omit this field entirely for public pages that do not require sign-in. -->
+
+**Session:** fresh
+
+<!-- Session options: fresh | authenticated -->
+
+**Viewport:** desktop
+
+<!-- Viewport options: desktop (default) | mobile (390px width) -->
+
+**Output:** .claude/ux-audit/voting-audit.md
+
+<!-- Output path for the report. -->
+
+## Scenario
+
+You are a first-time user who just received an invite link.
+
+1. Arrive at the sign-in page.
+2. Sign in successfully and take stock of the landing screen.
+`;
+
+const MINIMAL_PUBLIC_SCENARIO = `# Landing Page Review
+
+**App URL:** http://localhost:3000/
+**App Name:** MyApp
+**App Persona:** A visitor evaluating the product before signing up.
+
+## Scenario
+
+1. Read the landing page as a skeptical first-time visitor.
+2. Note whether the value proposition is clear within a few seconds.
+`;
+
+describe("loadScenarios", () => {
+  it("throws a friendly error, not a raw ENOENT, when .ux-audit/scenarios/ is missing", async () => {
+    await expect(loadScenarios(cwd)).rejects.toThrow(/ux-audit init/);
+  });
+
+  it("returns an empty array when the scenarios directory is empty", async () => {
+    await mkdir(resolveScenariosDir(cwd), { recursive: true });
+
+    await expect(loadScenarios(cwd)).resolves.toEqual([]);
+  });
+
+  it("ignores non-markdown files in the scenarios directory", async () => {
+    await writeScenarioFile(cwd, "core-voting-loop.md", FULL_SCENARIO);
+    await writeScenarioFile(cwd, ".DS_Store", "not a scenario");
+    await writeScenarioFile(cwd, "README.txt", "not a scenario");
+
+    const scenarios = await loadScenarios(cwd);
+
+    expect(scenarios).toHaveLength(1);
+  });
+
+  it("parses every field, derives the slug from the filename, and strips comments from the steps", async () => {
+    await writeScenarioFile(cwd, "core-voting-loop.md", FULL_SCENARIO);
+
+    const scenarios = await loadScenarios(cwd);
+
+    expect(scenarios).toEqual([
+      {
+        slug: "core-voting-loop",
+        appUrl: "http://localhost:3000",
+        appName: "MyApp",
+        appPersona: "One sentence describing the app and who uses it.",
+        credentialsRef: "default",
+        session: "fresh",
+        viewport: "desktop",
+        output: ".claude/ux-audit/voting-audit.md",
+        steps: [
+          "You are a first-time user who just received an invite link.",
+          "",
+          "1. Arrive at the sign-in page.",
+          "2. Sign in successfully and take stock of the landing screen.",
+        ].join("\n"),
+      },
+    ]);
+  });
+
+  it("applies schema defaults and leaves Auth/Output unset for a public scenario with no Auth or Output field", async () => {
+    await writeScenarioFile(cwd, "landing-page-review.md", MINIMAL_PUBLIC_SCENARIO);
+
+    const scenarios = await loadScenarios(cwd);
+
+    expect(scenarios).toEqual([
+      {
+        slug: "landing-page-review",
+        appUrl: "http://localhost:3000/",
+        appName: "MyApp",
+        appPersona: "A visitor evaluating the product before signing up.",
+        session: "fresh",
+        viewport: "desktop",
+        steps: [
+          "1. Read the landing page as a skeptical first-time visitor.",
+          "2. Note whether the value proposition is clear within a few seconds.",
+        ].join("\n"),
+      },
+    ]);
+  });
+
+  it("throws a friendly error, not a raw zod error, when a required field is missing", async () => {
+    const missingAppUrl = MINIMAL_PUBLIC_SCENARIO.replace("**App URL:** http://localhost:3000/\n", "");
+    await writeScenarioFile(cwd, "broken.md", missingAppUrl);
+
+    await expect(loadScenarios(cwd)).rejects.toBeInstanceOf(ConfigLoadError);
+    await expect(loadScenarios(cwd)).rejects.toThrow(/failed validation/);
+    await expect(loadScenarios(cwd)).rejects.toThrow(/appUrl/);
+  });
+
+  it("throws a friendly error when the file has no `## Scenario` section", async () => {
+    const missingSteps = MINIMAL_PUBLIC_SCENARIO.replace(/## Scenario[\s\S]*/, "");
+    await writeScenarioFile(cwd, "no-steps.md", missingSteps);
+
+    await expect(loadScenarios(cwd)).rejects.toBeInstanceOf(ConfigLoadError);
+    await expect(loadScenarios(cwd)).rejects.toThrow(/## Scenario/);
+  });
+
+  it("throws a friendly error when the `## Scenario` section has a heading but no steps", async () => {
+    const emptySteps = `${MINIMAL_PUBLIC_SCENARIO.replace(/## Scenario[\s\S]*/, "")}## Scenario\n\n`;
+    await writeScenarioFile(cwd, "empty-steps.md", emptySteps);
+
+    await expect(loadScenarios(cwd)).rejects.toBeInstanceOf(ConfigLoadError);
+    await expect(loadScenarios(cwd)).rejects.toThrow(/no steps/);
+  });
+
+  it("returns scenarios sorted by filename", async () => {
+    await writeScenarioFile(cwd, "b-scenario.md", MINIMAL_PUBLIC_SCENARIO);
+    await writeScenarioFile(cwd, "a-scenario.md", MINIMAL_PUBLIC_SCENARIO);
+
+    const scenarios = await loadScenarios(cwd);
+
+    expect(scenarios.map((s) => s.slug)).toEqual(["a-scenario", "b-scenario"]);
   });
 });
