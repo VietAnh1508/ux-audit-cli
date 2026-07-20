@@ -1,6 +1,6 @@
 # ux-audit CLI — Implementation Plan
 
-**Status: Phase 1 — next: `src/commands/scenario.ts` (`add`)**
+**Status: Phase 1 — next: `src/backends/claude-code.ts` (`runScenario`)**
 (update this line in the same commit as whatever task you just closed out)
 
 This is the execution checklist. For *why* each decision was made, see
@@ -107,21 +107,46 @@ exactly one scenario, no picker, no concurrency.
       takes a `credentialsRef` resolved from `credentials.local.json` instead of an
       inline email/password. Write the parser in `src/config/loader.ts`
       (`loadScenarios`) — reuse a markdown frontmatter-ish parse, not a new format.
-- [ ] `src/commands/scenario.ts` (`add`) — copy the template into `.ux-audit/scenarios/`
-- [ ] `src/browser/launch.ts` — launch Playwright with a remote-debugging port,
+- [x] `src/commands/scenario.ts` (`add`) — copy the template into `.ux-audit/scenarios/`
+- [x] `src/browser/launch.ts` — launch Playwright with a remote-debugging port,
       `checkUrlReachable` mirroring the old skill's preflight
-- [ ] `src/browser/mcp-bridge.ts` — spawn `@playwright/mcp` against that CDP endpoint,
-      `--caps` excluding `browser_evaluate`, single (non-concurrent) `--user-data-dir`
-      for now
+- [x] `src/browser/mcp-bridge.ts` — spawn `@playwright/mcp` against that CDP endpoint as
+      an HTTP-transport subprocess (`--port`), single (non-concurrent) `--user-data-dir`
+      for now. Correction from the original plan: in the installed `@playwright/mcp`
+      (0.0.78), `--caps` only *adds* `vision`/`pdf`/`devtools` — it cannot exclude
+      `browser_evaluate`/`browser_run_code_unsafe`, which are always-on core tools, so
+      this step does not pass `--caps` at all. The RCE-prevention exclusion moves
+      entirely to the next task's `--allowedTools` allowlist.
 - [ ] `src/backends/claude-code.ts` (`runScenario`) — spawn `claude -p` with
-      `--mcp-config` + `--allowedTools` scoped to the bridge's tools, prompt = app
-      overview + scenario steps, prompted to write findings JSON to the given path
+      `--mcp-config` (pointing at the bridge's `mcpConfigPath`) + `--allowedTools`
+      as an allowlist of safe tool names (`browser_navigate`, `browser_click`,
+      `browser_type`, `browser_snapshot`, `browser_take_screenshot`, `browser_wait_for`,
+      etc.) that omits both `browser_evaluate` and `browser_run_code_unsafe` — this is
+      now the only enforcement point for that exclusion, see the corrected note above.
+      Prompt = app overview + scenario steps, prompted to write findings JSON to the
+      given path.
 - [ ] `src/engine/findings-handoff.ts` — read + validate against
       `ScenarioFindingsSchema`, retry once (re-prompt with the validation error) on
       failure, else surface `Status: ERROR`
 - [ ] `src/accessibility/axe-runner.ts` — real `AxeBuilder` scan at each key state,
       `wcag22aa` tags only (guideline presets come in Phase 3)
-- [ ] `src/engine/run-scenario.ts` — wire steps 1-7 together
+- [ ] `src/engine/run-scenario.ts` — wire steps 1-7 together. **Unverified risk found
+      while testing launch.ts + mcp-bridge.ts**: the "shared live page" premise (Execution
+      engine step 5 — our own axe/screenshot code and the LLM backend's MCP tool calls
+      operate on the same tab) is not automatic. Smoke-tested three orderings —
+      (a) `launchBrowser`'s own `context.newPage()` before the bridge starts,
+      (b) creating our page via a separate `connectOverCDP` call before the bridge starts,
+      (c) attaching via `connectOverCDP` *after* the bridge already navigated — and in all
+      three, our Playwright connection's `context.pages()` came back empty/stale after
+      `@playwright/mcp` drove a `browser_navigate` over its own CDP connection. Two
+      independent `connectOverCDP` clients on the same `--remote-debugging-port` do not
+      transparently see each other's pages/contexts by default. Needs a working spike
+      before wiring this file: candidates are (1) polling/re-querying
+      `browser.contexts()`/`Target.getTargets` after the bridge acts instead of caching
+      the page reference, (2) driving everything (our axe scans included) through the MCP
+      connection's own page handle rather than a second Playwright connection, or (3) a
+      different CDP attach sequencing entirely. Confirm which works before assuming either
+      side can address "the" page.
 - [ ] `src/commands/run.ts` — drop the "not implemented" and call `run-scenario` for a
       single resolved scenario (no `--scenario` parsing yet, just first scenario found)
 - **Acceptance**: `ux-audit run` against a real local app produces one findings JSON
