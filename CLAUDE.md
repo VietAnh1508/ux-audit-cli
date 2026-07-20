@@ -13,8 +13,13 @@ Anthropic API directly.
   execution engine, open risks. Read this before changing architecture, not just the
   code.
 - [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md) — the execution
-  checklist, broken into phases with file-level tasks and acceptance criteria. Check
-  this before starting work to see what phase is active and what's already done.
+  checklist and current status at a glance. Check this before starting work to see
+  what phase is active and what's already done.
+- `docs/phases/phase-N-*.md` — one file per phase, each with that phase's task list,
+  testing strategy, testing evidence (what was actually run/verified, with commit
+  references), and gotchas/drift discovered while implementing it. Read the active
+  phase's doc before starting work on it; update it (not just the checklist above)
+  when you close out a task or hit something that deviates from the plan.
 - [`reference/ux-audit-skill/`](./reference/ux-audit-skill/) — the prior Claude-Code-native
   markdown skill this CLI supersedes. **Read-only reference**, not part of this tool's
   runtime — its scenario field set, report shape, and executor prompt patterns are the

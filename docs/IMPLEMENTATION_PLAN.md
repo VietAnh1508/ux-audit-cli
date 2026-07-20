@@ -1,11 +1,14 @@
 # ux-audit CLI — Implementation Plan
 
-**Status: Phase 1 — next: `src/backends/claude-code.ts` (`runScenario`)**
+**Status: Phase 1 — next: `src/backends/claude-code.ts` (`runScenario`), blocked on the
+shared-live-page spike — see [`phases/phase-1-single-scenario.md`](./phases/phase-1-single-scenario.md#gotchas--drift-from-plan)**
 (update this line in the same commit as whatever task you just closed out)
 
 This is the execution checklist. For *why* each decision was made, see
 [`UX_AUDIT_CLI_PLAN.md`](./UX_AUDIT_CLI_PLAN.md) — that file is the source of truth for
-architecture and rationale; this file just breaks it into ordered, file-level tasks.
+architecture and rationale. Each phase's file-level task list, testing evidence, and
+any drift/gotchas discovered while implementing it live in `docs/phases/phase-N-*.md` —
+this file just tracks the checklist and current status at a glance.
 
 `reference/ux-audit-skill/` is the old Claude-Code-native skill, kept **read-only** for
 behavioral parity — its scenario field set, report shape, and executor prompt patterns
@@ -54,156 +57,43 @@ stated acceptance check passing before moving to the next.
 
 ## Testing strategy
 
-See `UX_AUDIT_CLI_PLAN.md` Decision 7 for the rationale. TDD: `vitest` gets set up as
-the very first Phase 0 task below, before `config/loader.ts` or any other stub gets
-real logic — write the failing test first, then implement against it. Only
+See `UX_AUDIT_CLI_PLAN.md` Decision 7 for the rationale. TDD: `vitest` was set up as
+the very first Phase 0 task, before `config/loader.ts` or any other stub got real
+logic — write the failing test first, then implement against it. Only
 `config/schema.ts`, `config/paths.ts`, `config/loader.ts`, `backends/resolve.ts`, and
 `report/render.ts` get unit tests — everything that needs a real browser or a real CLI
 subprocess is verified by each phase's manual **Acceptance** check instead, not mocked.
 
-## Phase 0 — Scaffolding & preflight
+## Phases
 
-- [x] `package.json`, `tsconfig.json`, `.gitignore`
-- [x] `src/` skeleton — all modules present as typed stubs
-- [x] `vitest` devDependency + `pnpm test` script — set this up **first**, before any
-      stub below gets real logic (TDD, see Testing strategy above). No test files yet;
-      this task is just the runner + script wired up and passing on an empty suite.
-- [x] Playwright browser binaries — `pnpm exec playwright install` (chromium at
-      minimum) is a required one-time per-machine setup step, not covered by `pnpm
-      install`; already noted in `README.md`'s Local setup. Leaning toward
-      document-only for v1 rather than having `ux-audit init` detect and auto-install
-      missing browsers — revisit if this trips people up in practice.
-- [x] `src/config/loader.ts` (`loadConfig`, `loadAppOverview`) — write the failing
-      test(s) against `config/schema.ts` validation first, then implement: real fs
-      read + validation; throw a friendly "run `ux-audit init` first" error when
-      `.ux-audit/` is missing, not a raw ENOENT/zod error. `loadScenarios`,
-      `loadCredentials`, `loadGuideline` stay stubs — those are Phase 1/3 tasks below.
-- [x] `src/commands/init.ts` — `@clack/prompts` flow: scaffold `.ux-audit/{config.json,
-      app.json, scenarios/, guidelines/w3c.json}`, prompt for the `app.json` fields
-      (name, one-paragraph description, core business model, target user segments —
-      see `UX_AUDIT_CLI_PLAN.md` Decision 6), append `credentials.local.json` to
-      `.gitignore`
-- [x] `src/commands/app.ts` (`edit`) — re-prompt and overwrite `app.json`
-- [x] `ClaudeCodeBackend.isAvailable()` in `src/backends/claude-code.ts` — research
-      spike resolved: `claude auth status --json` is a documented subcommand that
-      prints `{"loggedIn": bool, ...}` instantly with no API call, so it beats both
-      options floated above (keychain/credential-file parsing is undocumented and
-      platform-split; a `claude -p` no-op call costs real tokens/time). Implementation
-      spawns it via `node:child_process` and collapses any failure (binary missing,
-      non-zero exit, bad JSON) to `false` — covers "not on PATH" and "not logged in"
-      with one code path.
-- **Acceptance**: `ux-audit init` on a throwaway directory produces a valid
-  `.ux-audit/`; running `ux-audit run` with no scenarios yet gives a clear, actionable
-  error instead of a stack trace.
+Each phase's detail doc has four sections: **Plan** (the task list and acceptance
+criterion as scoped for that phase), **Testing strategy**, **Testing evidence** (what
+was actually run/verified, with commit references), and **Gotchas / drift from plan**
+(corrections and open risks discovered while implementing, so the next session doesn't
+rediscover them). Update the relevant phase doc, not just the checklist below, when you
+close out a task.
 
-## Phase 1 — Single scenario, fixed W3C guideline, no picker
-
-Prove the Playwright-CDP-endpoint + `@playwright/mcp` + `claude -p` loop end to end for
-exactly one scenario, no picker, no concurrency.
-
-- [x] Scenario file format — markdown, same field set as
-      `reference/ux-audit-skill/references/scenario-template.md` (App URL, App Name,
-      App Persona, Auth, Session, Viewport, Output, free-text steps), except `Auth`
-      takes a `credentialsRef` resolved from `credentials.local.json` instead of an
-      inline email/password. Write the parser in `src/config/loader.ts`
-      (`loadScenarios`) — reuse a markdown frontmatter-ish parse, not a new format.
-- [x] `src/commands/scenario.ts` (`add`) — copy the template into `.ux-audit/scenarios/`
-- [x] `src/browser/launch.ts` — launch Playwright with a remote-debugging port,
-      `checkUrlReachable` mirroring the old skill's preflight
-- [x] `src/browser/mcp-bridge.ts` — spawn `@playwright/mcp` against that CDP endpoint as
-      an HTTP-transport subprocess (`--port`), single (non-concurrent) `--user-data-dir`
-      for now. Correction from the original plan: in the installed `@playwright/mcp`
-      (0.0.78), `--caps` only *adds* `vision`/`pdf`/`devtools` — it cannot exclude
-      `browser_evaluate`/`browser_run_code_unsafe`, which are always-on core tools, so
-      this step does not pass `--caps` at all. The RCE-prevention exclusion moves
-      entirely to the next task's `--allowedTools` allowlist.
-- [ ] `src/backends/claude-code.ts` (`runScenario`) — spawn `claude -p` with
-      `--mcp-config` (pointing at the bridge's `mcpConfigPath`) + `--allowedTools`
-      as an allowlist of safe tool names (`browser_navigate`, `browser_click`,
-      `browser_type`, `browser_snapshot`, `browser_take_screenshot`, `browser_wait_for`,
-      etc.) that omits both `browser_evaluate` and `browser_run_code_unsafe` — this is
-      now the only enforcement point for that exclusion, see the corrected note above.
-      Prompt = app overview + scenario steps, prompted to write findings JSON to the
-      given path.
-- [ ] `src/engine/findings-handoff.ts` — read + validate against
-      `ScenarioFindingsSchema`, retry once (re-prompt with the validation error) on
-      failure, else surface `Status: ERROR`
-- [ ] `src/accessibility/axe-runner.ts` — real `AxeBuilder` scan at each key state,
-      `wcag22aa` tags only (guideline presets come in Phase 3)
-- [ ] `src/engine/run-scenario.ts` — wire steps 1-7 together. **Unverified risk found
-      while testing launch.ts + mcp-bridge.ts**: the "shared live page" premise (Execution
-      engine step 5 — our own axe/screenshot code and the LLM backend's MCP tool calls
-      operate on the same tab) is not automatic. Smoke-tested three orderings —
-      (a) `launchBrowser`'s own `context.newPage()` before the bridge starts,
-      (b) creating our page via a separate `connectOverCDP` call before the bridge starts,
-      (c) attaching via `connectOverCDP` *after* the bridge already navigated — and in all
-      three, our Playwright connection's `context.pages()` came back empty/stale after
-      `@playwright/mcp` drove a `browser_navigate` over its own CDP connection. Two
-      independent `connectOverCDP` clients on the same `--remote-debugging-port` do not
-      transparently see each other's pages/contexts by default. Needs a working spike
-      before wiring this file: candidates are (1) polling/re-querying
-      `browser.contexts()`/`Target.getTargets` after the bridge acts instead of caching
-      the page reference, (2) driving everything (our axe scans included) through the MCP
-      connection's own page handle rather than a second Playwright connection, or (3) a
-      different CDP attach sequencing entirely. Confirm which works before assuming either
-      side can address "the" page.
-- [ ] `src/commands/run.ts` — drop the "not implemented" and call `run-scenario` for a
-      single resolved scenario (no `--scenario` parsing yet, just first scenario found)
-- **Acceptance**: `ux-audit run` against a real local app produces one findings JSON
-  file with real axe results and at least one LLM-authored finding.
-
-## Phase 2 — Multi-scenario + picker + report synthesis + concurrency
-
-- [ ] `src/commands/run.ts` — parse `--scenario a,b`; no flag → `@clack/prompts`
-      multi-select checkbox over `loadScenarios()`
-- [ ] Concurrency: run scenarios via a bounded pool (`--concurrency`, default 2 per
-      `UX_AUDIT_CLI_PLAN.md` Open risks), each with its own `--isolated` (or distinct
-      `--user-data-dir`) MCP bridge instance and CDP port
-- [ ] `src/report/synthesize.ts` — LLM call (same backend abstraction) over all
-      scenarios' findings JSON + `app.json`, cross-scenario dedup by element+dimension,
-      returns `Report`
-- [ ] `src/report/render.ts` — `Report` → markdown using
-      `src/report/templates/{report-single,report-multi}.md`
-- **Acceptance**: `ux-audit run` with 3 scenarios (2 passing, 1 seeded to fail) produces
-  one combined report with a correctly deduped cross-scenario section, respects
-  `--concurrency`.
-
-## Phase 3 — Guideline presets + custom rules
-
-- [ ] `src/config/loader.ts` (`loadGuideline`) + `.ux-audit/guidelines/*.json` —
-      built-ins `w3c` (`wcag22aa`), `us-section508`, `eu-en301549`, each just a
-      different axe `runOnly` tag set (see `UX_AUDIT_CLI_PLAN.md` Decision 3)
-- [ ] `src/commands/guideline.ts` (`list`, `add`) — list built-ins + custom, `add` for
-      user-defined tag sets / checklists
-- [ ] `--guideline` flag on `run` wired through to `axe-runner.ts`
-- **Acceptance**: switching `--guideline us-section508` changes which axe rules run,
-  verified against a page with a known Section 508-only violation.
-
-## Phase 4 — Additional LLM backends
-
-One backend at a time, each a new MCP-config writer + subprocess shape behind the
-existing `LlmBackend` interface — no interface changes expected.
-
-- [ ] `src/backends/codex.ts` — `codex exec`, MCP entry in `.codex/config.toml`; note
-      OpenAI's own docs recommend API-key auth (not ChatGPT sign-in) for CI/CD use
-- [ ] `src/backends/gemini-cli.ts` — `gemini --non-interactive --yolo --output-format
-      json`, `mcpServers` entry in `.gemini/settings.json`
-- [ ] `src/backends/api.ts` — `@anthropic-ai/sdk`'s `toolRunner` + `betaZodTool` +
-      `zodOutputFormat` (skip the file-handoff validate/retry path — schema conformance
-      is SDK-enforced here)
-- [ ] `src/backends/resolve.ts` — extend `AUTO_PREFERENCE_ORDER`, no other changes
-- **Acceptance**: `--llmBackend codex` (and `gemini-cli`) complete the same Phase 1
-  scenario end to end; `--llmBackend api` requires only `ANTHROPIC_API_KEY`, no CLI
-  installed.
-
-## Phase 5 — Polish, distribution, docs
-
-- [ ] `npx ux-audit-cli` works from a clean install (verify `bin` entry + `dist/`
-      build)
-- [ ] `README.md` (quick start, requirements, scenario format) — not yet written;
-      write once the command surface has stopped changing
-- [ ] Error messages audit — every thrown error in the stubs above should have been
-      replaced with a user-facing message, not a raw exception
+- [x] **Phase 0 — Scaffolding & preflight** — done.
+      → [`phases/phase-0-scaffolding.md`](./phases/phase-0-scaffolding.md)
+- [ ] **Phase 1 — Single scenario, fixed W3C guideline, no picker** — in progress.
+      → [`phases/phase-1-single-scenario.md`](./phases/phase-1-single-scenario.md)
+  - [x] Scenario file format + `loadScenarios`
+  - [x] `src/commands/scenario.ts` (`add`)
+  - [x] `src/browser/launch.ts`
+  - [x] `src/browser/mcp-bridge.ts`
+  - [ ] `src/backends/claude-code.ts` (`runScenario`) — **blocked**, see phase doc
+  - [ ] `src/engine/findings-handoff.ts`
+  - [ ] `src/accessibility/axe-runner.ts`
+  - [ ] `src/engine/run-scenario.ts`
+  - [ ] `src/commands/run.ts` (single scenario, no picker)
+- [ ] **Phase 2 — Multi-scenario + picker + report synthesis + concurrency** — not started.
+      → [`phases/phase-2-multi-scenario.md`](./phases/phase-2-multi-scenario.md)
+- [ ] **Phase 3 — Guideline presets + custom rules** — not started.
+      → [`phases/phase-3-guideline-presets.md`](./phases/phase-3-guideline-presets.md)
+- [ ] **Phase 4 — Additional LLM backends** — not started.
+      → [`phases/phase-4-additional-backends.md`](./phases/phase-4-additional-backends.md)
+- [ ] **Phase 5 — Polish, distribution, docs** — not started.
+      → [`phases/phase-5-polish.md`](./phases/phase-5-polish.md)
 
 ## Open questions carried from the design plan
 
