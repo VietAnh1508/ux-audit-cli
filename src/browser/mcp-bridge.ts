@@ -91,6 +91,10 @@ export async function startMcpBridge(options: McpBridgeOptions): Promise<McpBrid
       // to match the documented per-scenario contract in case that changes upstream.
       "--user-data-dir",
       options.userDataDir,
+      // Without this, @playwright/mcp writes screenshots/etc. relative to its own cwd —
+      // which is the audited app's repo, not somewhere we own. Keep its artifacts contained.
+      "--output-dir",
+      path.join(options.userDataDir, "output"),
     ],
     { stdio: ["ignore", "pipe", "pipe"] },
   );
@@ -101,7 +105,11 @@ export async function startMcpBridge(options: McpBridgeOptions): Promise<McpBrid
   const mcpConfigPath = path.join(options.userDataDir, "mcp-config.json");
   await writeFile(
     mcpConfigPath,
-    JSON.stringify({ mcpServers: { playwright: { url: `http://localhost:${port}/mcp` } } }, null, 2),
+    JSON.stringify(
+      { mcpServers: { playwright: { type: "http", url: `http://localhost:${port}/mcp` } } },
+      null,
+      2,
+    ),
     "utf-8",
   );
 

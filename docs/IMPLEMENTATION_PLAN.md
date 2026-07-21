@@ -1,7 +1,8 @@
 # ux-audit CLI — Implementation Plan
 
-**Status: Phase 1 — next: `src/backends/claude-code.ts` (`runScenario`), blocked on the
-shared-live-page spike — see [`phases/phase-1-single-scenario.md`](./phases/phase-1-single-scenario.md#gotchas--drift-from-plan)**
+**Status: Phase 1 — next: `src/engine/findings-handoff.ts`, then `src/accessibility/axe-runner.ts`.
+`src/engine/run-scenario.ts` remains blocked on the shared-live-page spike — see
+[`phases/phase-1-single-scenario.md`](./phases/phase-1-single-scenario.md#gotchas--drift-from-plan)**
 (update this line in the same commit as whatever task you just closed out)
 
 This is the execution checklist. For *why* each decision was made, see
@@ -81,7 +82,7 @@ close out a task.
   - [x] `src/commands/scenario.ts` (`add`)
   - [x] `src/browser/launch.ts`
   - [x] `src/browser/mcp-bridge.ts`
-  - [ ] `src/backends/claude-code.ts` (`runScenario`) — **blocked**, see phase doc
+  - [x] `src/backends/claude-code.ts` (`runScenario`)
   - [ ] `src/engine/findings-handoff.ts`
   - [ ] `src/accessibility/axe-runner.ts`
   - [ ] `src/engine/run-scenario.ts`
