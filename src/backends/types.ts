@@ -7,6 +7,13 @@ export interface LlmBackendRunOptions {
   credentials?: Credentials;
   mcpServerConfigPath: string;
   findingsOutputPath: string;
+  /**
+   * Set by the engine's findings-handoff retry (see src/engine/findings-handoff.ts) when the
+   * previous attempt's findings JSON failed schema validation. The subprocess is stateless, so
+   * this triggers a full re-walk, not just a JSON patch — backends must fold it into the prompt
+   * alongside (not instead of) the normal walk instructions.
+   */
+  previousValidationError?: string;
 }
 
 export interface LlmBackend {

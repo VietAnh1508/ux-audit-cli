@@ -1,9 +1,10 @@
 # Phase 1 — Single scenario, fixed W3C guideline, no picker
 
-Status: **in progress** — `src/backends/claude-code.ts` (`runScenario`) is done; next up:
-`src/engine/findings-handoff.ts`, then `src/accessibility/axe-runner.ts`.
-`src/engine/run-scenario.ts` remains blocked on the open spike below — the adapter itself
-never touches a page handle, so it wasn't blocked by it. See
+Status: **in progress** — `src/backends/claude-code.ts` (`runScenario`) and
+`src/engine/findings-handoff.ts` are done; next up: `src/accessibility/axe-runner.ts`.
+`src/engine/run-scenario.ts` remains blocked on the open spike below — neither the adapter
+nor the findings-handoff read/validate/retry logic touches a page handle, so neither was
+blocked by it. See
 [`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) for the checklist and current
 overall status; this doc is the detail behind it.
 
@@ -71,9 +72,24 @@ wired up.
   `run-scenario.ts` exists and there's a real app with an auth flow to point it at.
   `pnpm typecheck` and `pnpm test` (17 tests, pre-existing suite) both clean after these
   changes.
+- `readAndValidateFindings` (`src/engine/findings-handoff.ts`): implemented per plan —
+  read the findings file, `safeParse` against `ScenarioFindingsSchema`, and on failure
+  (missing file, bad JSON, or schema mismatch) re-invoke `backend.runScenario` once with
+  `previousValidationError` set (new optional field on `LlmBackendRunOptions`, folded
+  into `claude-code.ts`'s prompt as a full re-walk instruction, not a JSON-patch
+  instruction — the subprocess is stateless and has no memory of the first attempt). If
+  the retry still fails validation, returns a synthesized `{ status: "ERROR" }` findings
+  object with the validation error in `notes`, matching the old skill's
+  Chrome-unavailable `ERROR` convention referenced in `UX_AUDIT_CLI_PLAN.md` Open risks.
+  Not unit tested, matching this phase's testing strategy — the only non-trivial branch
+  (the retry) depends on a real backend subprocess, not mockable logic. `pnpm typecheck`
+  and `pnpm test` (17 tests, pre-existing suite) both clean after these changes.
+  **Not yet exercised against a real subprocess**: this needs `run-scenario.ts` wired up
+  first (see below) since that's what will actually construct `LlmBackendRunOptions` and
+  call this function.
 - Full Phase 1 **Acceptance** check (real findings JSON with axe + LLM findings) not
-  yet run — still blocked on `run-scenario.ts` below (needs `findings-handoff.ts` and
-  `axe-runner.ts` first, then the shared-live-page spike).
+  yet run — still blocked on `run-scenario.ts` below (needs `axe-runner.ts` next, then
+  the shared-live-page spike).
 
 ## Gotchas / drift from plan
 

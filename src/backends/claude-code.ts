@@ -93,9 +93,14 @@ function sessionInstructions(session: "fresh" | "authenticated", credentials?: C
 }
 
 function buildPrompt(options: LlmBackendRunOptions): string {
-  const { scenario, appOverview, credentials, findingsOutputPath } = options;
+  const { scenario, appOverview, credentials, findingsOutputPath, previousValidationError } = options;
 
   return `You are a UX designer conducting a structured usability assessment. Walk through the scenario below as a first-time user would: notice what's confusing, what looks unpolished, what slows them down. Your findings should reflect genuine design judgment, not a checklist pass.
+${
+  previousValidationError
+    ? `\nYour previous attempt at this scenario wrote a findings file that failed schema validation:\n\n${previousValidationError}\n\nThis is a fresh run — walk the scenario again from scratch and make sure the findings JSON you write this time matches the required shape exactly.\n`
+    : ""
+}
 
 A browser is open and controllable through the connected browser tools — navigate to the App URL below to begin. Accessibility scanning (axe-core) runs separately outside this session — focus on subjective UX judgment: visual hierarchy, CTA clarity, copy quality, empty/loading states, feedback after actions, information density, friction, and anything a first-time user would find confusing. Take a screenshot at each key state (initial load, after each interaction, error states, confirmation states) and note the screen name/state as you go.
 
