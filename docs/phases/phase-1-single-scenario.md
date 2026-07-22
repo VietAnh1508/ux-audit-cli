@@ -16,7 +16,7 @@ Chromium instance, and two short-lived subprocesses), all pivoting around one sh
 │                                                                          │
 │ 1. load config.json / app.json / scenario.md                             │
 │ 2. resolveBackend() → backend.isAvailable() preflight                    │
-│ 3. checkUrlReachable(scenario.appUrl)                                    │
+│ 3. checkUrlReachable(scenario.scenarioUrl ?? appOverview.url)             │
 │ 4. loadCredentials(scenario.credentialsRef)   — only if Auth is set      │
 │                                                                          │
 │ 5. launchBrowser(viewport)                                               │
@@ -68,7 +68,7 @@ Chromium instance, and two short-lived subprocesses), all pivoting around one sh
 │ 8. readAndValidateFindings(findings.json)                                │
 │      invalid? → retry once (re-spawn claude -p, step 7) → else ERROR     │
 │                                                                          │
-│ 9. same-origin guard: is page.url() still on appUrl's origin?            │
+│ 9. same-origin guard: is page.url() still on that resolved URL's origin? │
 │      no → ERROR (the shared-page invariant broke)                        │
 │                                                                          │
 │ 10. runAxeScan(page, ["wcag22aa"])                                       │
@@ -223,7 +223,8 @@ wired up.
   because `browser_tabs`/`browser_resize` are excluded from the allowlist (an
   OAuth-popup or similar could still spawn a second page and make `page.url()` stale),
   after `backend.runScenario()` returns with `status: "OK"`, `run-scenario.ts` checks
-  `page.url()` is on `scenario.appUrl`'s origin before trusting it for the axe scan —
+  `page.url()` is on the resolved URL's (`scenario.scenarioUrl ?? appOverview.url`)
+  origin before trusting it for the axe scan —
   if not, the scenario is surfaced as `ERROR` instead of scanning a blank/stale page.
   Not yet exercised against an auth scenario (only the no-auth `example.com`/
   `playwright.dev` case above) — revisit if an auth-flow popup breaks this.

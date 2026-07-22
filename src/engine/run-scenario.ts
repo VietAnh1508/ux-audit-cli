@@ -44,9 +44,9 @@ function axeResultsToFindings(results: AxeScanResult): Finding[] {
   });
 }
 
-function isSameOrigin(url: string, appUrl: string): boolean {
+function isSameOrigin(url: string, expectedUrl: string): boolean {
   try {
-    return new URL(url).origin === new URL(appUrl).origin;
+    return new URL(url).origin === new URL(expectedUrl).origin;
   } catch {
     return false;
   }
@@ -77,8 +77,9 @@ export async function runScenario(
     );
   }
 
-  if (!(await checkUrlReachable(scenario.appUrl))) {
-    return errorFindings(scenario.slug, `${scenario.appUrl} is not reachable.`);
+  const url = scenario.scenarioUrl ?? appOverview.url;
+  if (!(await checkUrlReachable(url))) {
+    return errorFindings(scenario.slug, `${url} is not reachable.`);
   }
 
   const credentials = scenario.credentialsRef ? await loadCredentials(scenario.credentialsRef) : undefined;
@@ -95,6 +96,7 @@ export async function runScenario(
     const runOptions: LlmBackendRunOptions = {
       scenario,
       appOverview,
+      url,
       credentials,
       mcpServerConfigPath: bridge.mcpConfigPath,
       findingsOutputPath: path.join(userDataDir, "findings.json"),
@@ -119,10 +121,10 @@ export async function runScenario(
     // allowlist. If something still spawned a second page (e.g. an auth popup), this
     // page handle would be stale — surface that as ERROR rather than scanning a
     // blank/wrong page.
-    if (!isSameOrigin(page.url(), scenario.appUrl)) {
+    if (!isSameOrigin(page.url(), url)) {
       return errorFindings(
         scenario.slug,
-        `Expected the shared page to be on ${new URL(scenario.appUrl).origin} after the walk, but it was at ${page.url()}.`,
+        `Expected the shared page to be on ${new URL(url).origin} after the walk, but it was at ${page.url()}.`,
       );
     }
 

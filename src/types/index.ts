@@ -2,6 +2,7 @@ export type LlmBackendName = "auto" | "claude-code" | "codex" | "gemini-cli" | "
 
 export interface AppOverview {
   name: string;
+  url: string;
   description: string;
   coreBusiness: string;
   targetUsers: string;
@@ -16,9 +17,7 @@ export interface AppConfig {
 
 export interface ScenarioConfig {
   slug: string;
-  appUrl: string;
-  appName: string;
-  appPersona: string;
+  scenarioUrl?: string;
   credentialsRef?: string;
   session: "fresh" | "authenticated";
   viewport: "desktop" | "mobile";

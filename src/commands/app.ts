@@ -15,14 +15,14 @@ function exitOnCancel<T>(value: T | symbol): T {
   return value;
 }
 
-// Updates the stored app overview (name, description, core business, target users)
+// Updates the stored app overview (name, URL, description, core business, target users)
 // without re-running the full `init` flow. See docs/UX_AUDIT_CLI_PLAN.md Decision 6.
 export function registerAppCommand(program: Command): void {
   const app = program.command("app").description("Manage the stored app overview");
 
   app
     .command("edit")
-    .description("Update app.json (name, description, core business, target users)")
+    .description("Update app.json (name, URL, description, core business, target users)")
     .action(async () => {
       const cwd = process.cwd();
 
@@ -45,7 +45,7 @@ export function registerAppCommand(program: Command): void {
           await text({
             message: field.message,
             initialValue: current[field.key],
-            validate: (input) => (input?.trim() ? undefined : "Required"),
+            validate: (input) => field.validate(input ?? ""),
           }),
         );
         answers[field.key] = value.trim();

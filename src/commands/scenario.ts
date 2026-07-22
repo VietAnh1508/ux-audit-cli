@@ -32,15 +32,21 @@ function slugify(name: string): string {
 
 // Same field set as reference/ux-audit-skill/references/scenario-template.md, except
 // `Auth` takes a credentialsRef (a key into credentials.local.json) instead of an
-// inline email/password — see src/config/loader.ts's SCENARIO_FIELD_MAP.
+// inline email/password, there's no App Name/Persona field (that context comes from
+// app.json), and App URL is now Scenario URL — optional, only needed when a scenario
+// targets a different page than app.json's URL (see src/config/loader.ts's
+// SCENARIO_FIELD_MAP).
 function buildScenarioTemplate(name: string): string {
   return `# ${name}
 
 <!-- Short name for this journey, e.g. "New User Onboarding" or "Core Voting Loop" -->
 
-**App URL:** http://localhost:3000
-**App Name:** MyApp
-**App Persona:** One sentence describing the app and who uses it.
+<!-- Scenario URL: only needed when this scenario should start on a different page
+     than app.json's URL, e.g. a deep link to a specific settings page. Omit to start
+     at the app's URL.
+**Scenario URL:** http://localhost:3000/settings
+-->
+
 **Auth:** test-user
 
 <!-- Auth: a key into .ux-audit/credentials.local.json, e.g. "test-user" ->
@@ -53,7 +59,7 @@ function buildScenarioTemplate(name: string): string {
 
 <!-- Session options (only relevant when Auth is present):
      fresh         — log out any existing session before starting; use when the scenario tests sign-in or onboarding
-     authenticated — sign in silently if not already logged in, then navigate to App URL; use when the scenario starts mid-app
+     authenticated — sign in silently if not already logged in, then navigate to the app's URL; use when the scenario starts mid-app
      Omit alongside Auth when the scenario is entirely public-facing.
 -->
 

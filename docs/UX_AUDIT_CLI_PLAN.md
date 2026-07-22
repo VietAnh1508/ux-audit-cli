@@ -59,17 +59,19 @@ This plan replaces those four gaps with a CLI tool.
    `ANTHROPIC_API_KEY` is set and no CLI is available.
 6. **App overview, stored once at the project level.** Add an `app.json` (business
    context: what the app does, core business model, main target users/segments) that
-   is set up once via `ux-audit init` and reused across every scenario and report run —
-   distinct from the per-scenario `App Persona` field, which stays scoped to the
-   persona/state for *that scenario* (e.g. "first-time visitor" vs. "returning power
-   user on the free tier"). Rationale: business context (who this is for, what "success"
+   is set up once via `ux-audit init` and reused across every scenario and report run,
+   instead of repeating app name/description into every scenario file. Scenario-specific
+   persona/state (e.g. "first-time visitor" vs. "returning power user on the free tier")
+   isn't a separate field — it's stated in prose at the top of the scenario's `##
+   Scenario` steps, since that's where the role-play state naturally belongs alongside
+   the steps it governs. Rationale: business context (who this is for, what "success"
    looks like commercially) shapes how a friction point should be *prioritized* — e.g. a
    confusing paywall step is more severe for a subscription-first business than for an
    ad-supported one — and today's skill has no way to express that at all; it either
-   goes unstated or gets awkwardly repeated into every scenario file's one-line persona
-   field. Fed as shared context into both the journey-walk prompt (step 4 of the
-   execution engine) and the report-synthesis call, so severity judgments and framing
-   are business-aware, not just screen-by-screen.
+   goes unstated or gets awkwardly repeated into every scenario file. Fed as shared
+   context into both the journey-walk prompt (step 4 of the execution engine) and the
+   report-synthesis call, so severity judgments and framing are business-aware, not just
+   screen-by-screen.
 7. **Testing strategy: TDD, `vitest` as the runner.** `vitest` fits the existing ESM +
    `NodeNext` + TS setup with no extra config, unlike Jest's ESM friction. It's set up
    *before* any further implementation work — see `IMPLEMENTATION_PLAN.md` Phase 0,
@@ -106,7 +108,7 @@ This plan replaces those four gaps with a CLI tool.
 .ux-audit/
   config.json              — default guideline, concurrency limit, output dir,
                               llmBackend ("auto"|"claude-code"|"codex"|"gemini-cli"|"api")  (committed)
-  app.json                 — { "name", "description", "coreBusiness", "targetUsers" }  (committed)
+  app.json                 — { "name", "url", "description", "coreBusiness", "targetUsers" }  (committed)
   scenarios/
     sign-up.md             — scenario definition, NO secrets                   (committed)
     core-loop.md
@@ -116,17 +118,21 @@ This plan replaces those four gaps with a CLI tool.
     my-custom.json          — user-defined
 ```
 
-Scenario files keep the existing field set (App URL, App Name, Persona, Session,
-Viewport, Output) but replace inline `Auth: email/password` with `Auth: <credentialsRef>`,
-resolved at runtime from the gitignored file. `ux-audit init` scaffolds this directory,
-prompts for the `app.json` fields (name, one-paragraph description, core business
-model, main target user segments), and adds `credentials.local.json` to `.gitignore`
+Scenario files keep the existing field set (Session, Viewport, Output) minus App
+Name/Persona — now covered by `app.json` and by prose at the top of the `## Scenario`
+steps — and App URL, replaced by an **optional Scenario URL** that only needs to be
+set when a scenario targets a different page than `app.json`'s URL (e.g. a deep link
+into a specific settings page); when omitted, the engine falls back to `app.json`'s
+URL. Inline `Auth: email/password` is replaced with `Auth: <credentialsRef>`, resolved
+at runtime from the gitignored file. `ux-audit init` scaffolds this directory, prompts
+for the `app.json` fields (name, URL, one-paragraph description, core business model,
+main target user segments), and adds `credentials.local.json` to `.gitignore`
 automatically.
 
 ## Command surface
 
 - `ux-audit init` — scaffold `.ux-audit/`, write gitignore entry, prompt for `app.json`
-- `ux-audit app edit` — update the stored app overview (name, description, core
+- `ux-audit app edit` — update the stored app overview (name, URL, description, core
   business, target users) without re-running the full `init` flow
 - `ux-audit scenario add|list|remove`
 - `ux-audit guideline list|add` (built-ins: `w3c` default, `us-section508`,
@@ -136,8 +142,9 @@ automatically.
 
 ## Execution engine, per scenario
 
-1. Resolve scenario + credentials + `app.json` (app overview: description, core
-   business, target users).
+1. Resolve scenario + credentials + `app.json` (app overview: URL, description, core
+   business, target users). The URL used for the walk is the scenario's own Scenario
+   URL if set, else `app.json`'s URL.
 2. Launch Playwright with a remote-debugging port (CDP endpoint), apply viewport,
    preflight-check the URL reachability (mirrors the old skill's check).
 3. Start `@playwright/mcp` as a subprocess pointed at that CDP endpoint (`--isolated`

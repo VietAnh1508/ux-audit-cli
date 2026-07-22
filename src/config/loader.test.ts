@@ -88,6 +88,7 @@ describe("loadAppOverview", () => {
   it("returns a valid app overview", async () => {
     const overview = {
       name: "Acme",
+      url: "https://acme.example.com",
       description: "Sells widgets online.",
       coreBusiness: "E-commerce",
       targetUsers: "Small business owners",
@@ -95,6 +96,24 @@ describe("loadAppOverview", () => {
     await writeUxAuditFile(cwd, resolveAppOverviewPath(cwd), JSON.stringify(overview));
 
     await expect(loadAppOverview(cwd)).resolves.toEqual(overview);
+  });
+
+  it("throws a friendly error, not a raw zod error, when app.json's url is not a valid URL", async () => {
+    await writeUxAuditFile(
+      cwd,
+      resolveAppOverviewPath(cwd),
+      JSON.stringify({
+        name: "Acme",
+        url: "not-a-url",
+        description: "Sells widgets online.",
+        coreBusiness: "E-commerce",
+        targetUsers: "Small business owners",
+      }),
+    );
+
+    await expect(loadAppOverview(cwd)).rejects.toBeInstanceOf(ConfigLoadError);
+    await expect(loadAppOverview(cwd)).rejects.toThrow(/failed validation/);
+    await expect(loadAppOverview(cwd)).rejects.toThrow(/url/);
   });
 });
 
@@ -107,9 +126,7 @@ const FULL_SCENARIO = `# Core Voting Loop
 
 <!-- Short name for this journey -->
 
-**App URL:** http://localhost:3000
-**App Name:** MyApp
-**App Persona:** One sentence describing the app and who uses it.
+**Scenario URL:** http://localhost:3000/vote
 **Auth:** default
 
 <!-- Auth: use a dedicated test account created solely for this audit.
@@ -136,10 +153,6 @@ You are a first-time user who just received an invite link.
 `;
 
 const MINIMAL_PUBLIC_SCENARIO = `# Landing Page Review
-
-**App URL:** http://localhost:3000/
-**App Name:** MyApp
-**App Persona:** A visitor evaluating the product before signing up.
 
 ## Scenario
 
@@ -176,9 +189,7 @@ describe("loadScenarios", () => {
     expect(scenarios).toEqual([
       {
         slug: "core-voting-loop",
-        appUrl: "http://localhost:3000",
-        appName: "MyApp",
-        appPersona: "One sentence describing the app and who uses it.",
+        scenarioUrl: "http://localhost:3000/vote",
         credentialsRef: "default",
         session: "fresh",
         viewport: "desktop",
@@ -193,7 +204,7 @@ describe("loadScenarios", () => {
     ]);
   });
 
-  it("applies schema defaults and leaves Auth/Output unset for a public scenario with no Auth or Output field", async () => {
+  it("applies schema defaults and leaves Auth/Output/Scenario URL unset for a public scenario with none of those fields", async () => {
     await writeScenarioFile(cwd, "landing-page-review.md", MINIMAL_PUBLIC_SCENARIO);
 
     const scenarios = await loadScenarios(cwd);
@@ -201,9 +212,6 @@ describe("loadScenarios", () => {
     expect(scenarios).toEqual([
       {
         slug: "landing-page-review",
-        appUrl: "http://localhost:3000/",
-        appName: "MyApp",
-        appPersona: "A visitor evaluating the product before signing up.",
         session: "fresh",
         viewport: "desktop",
         steps: [
@@ -214,13 +222,16 @@ describe("loadScenarios", () => {
     ]);
   });
 
-  it("throws a friendly error, not a raw zod error, when a required field is missing", async () => {
-    const missingAppUrl = MINIMAL_PUBLIC_SCENARIO.replace("**App URL:** http://localhost:3000/\n", "");
-    await writeScenarioFile(cwd, "broken.md", missingAppUrl);
+  it("throws a friendly error, not a raw zod error, when Scenario URL is not a valid URL", async () => {
+    const invalidScenarioUrl = `${MINIMAL_PUBLIC_SCENARIO.replace(
+      "## Scenario",
+      "**Scenario URL:** not-a-url\n\n## Scenario",
+    )}`;
+    await writeScenarioFile(cwd, "broken.md", invalidScenarioUrl);
 
     await expect(loadScenarios(cwd)).rejects.toBeInstanceOf(ConfigLoadError);
     await expect(loadScenarios(cwd)).rejects.toThrow(/failed validation/);
-    await expect(loadScenarios(cwd)).rejects.toThrow(/appUrl/);
+    await expect(loadScenarios(cwd)).rejects.toThrow(/scenarioUrl/);
   });
 
   it("throws a friendly error when the file has no `## Scenario` section", async () => {

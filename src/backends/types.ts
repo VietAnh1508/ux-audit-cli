@@ -3,6 +3,8 @@ import type { AppOverview, Credentials, ScenarioConfig } from "../types/index.js
 export interface LlmBackendRunOptions {
   scenario: ScenarioConfig;
   appOverview: AppOverview;
+  /** Resolved by the engine: scenario.scenarioUrl if set, else appOverview.url. */
+  url: string;
   /** Resolved from scenario.credentialsRef by the engine; absent for public, no-auth scenarios. */
   credentials?: Credentials;
   mcpServerConfigPath: string;

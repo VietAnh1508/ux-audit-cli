@@ -6,6 +6,7 @@ function caseInsensitiveEnum<const T extends [string, ...string[]]>(values: T) {
 
 export const AppOverviewSchema = z.object({
   name: z.string(),
+  url: z.string().url(),
   description: z.string(),
   coreBusiness: z.string(),
   targetUsers: z.string(),
@@ -22,9 +23,7 @@ export const AppConfigSchema = z.object({
 
 export const ScenarioConfigSchema = z.object({
   slug: z.string(),
-  appUrl: z.string().url(),
-  appName: z.string(),
-  appPersona: z.string(),
+  scenarioUrl: z.string().url().optional(),
   credentialsRef: z.string().optional(),
   session: caseInsensitiveEnum(["fresh", "authenticated"]).default("fresh"),
   viewport: caseInsensitiveEnum(["desktop", "mobile"]).default("desktop"),

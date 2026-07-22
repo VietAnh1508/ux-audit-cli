@@ -85,7 +85,7 @@ export function registerInitCommand(program: Command): void {
         const value = exitOnCancel(
           await text({
             message: field.message,
-            validate: (input) => (input?.trim() ? undefined : "Required"),
+            validate: (input) => field.validate(input ?? ""),
           }),
         );
         answers[field.key] = value.trim();

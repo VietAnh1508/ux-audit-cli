@@ -152,7 +152,7 @@ function sessionInstructions(session: "fresh" | "authenticated", credentials?: C
 }
 
 function buildPrompt(options: LlmBackendRunOptions): string {
-  const { scenario, appOverview, credentials, findingsOutputPath, previousValidationError } = options;
+  const { scenario, appOverview, url, credentials, findingsOutputPath, previousValidationError } = options;
 
   return `You are a UX designer conducting a structured usability assessment. Walk through the scenario below as a first-time user would: notice what's confusing, what looks unpolished, what slows them down. Your findings should reflect genuine design judgment, not a checklist pass.
 ${
@@ -178,9 +178,7 @@ Do not:
 
 ## Scenario
 
-**App URL:** ${scenario.appUrl}
-**App name:** ${scenario.appName}
-**Persona to role-play:** ${scenario.appPersona}
+**App URL:** ${url}
 **Session:** ${scenario.session}
 ${formatCredentials(credentials)}${scenario.selectorHint ? `**Selector hint:** ${scenario.selectorHint}\n` : ""}
 ${sessionInstructions(scenario.session, credentials)}

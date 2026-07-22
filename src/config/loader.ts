@@ -60,9 +60,7 @@ const SCENARIO_HEADING_PATTERN = /^##\s+Scenario\b.*$/m;
 // Maps the human-readable markdown field name to its ScenarioConfigSchema key. `Auth` maps to
 // `credentialsRef` — a lookup key into credentials.local.json, not an inline email/password.
 const SCENARIO_FIELD_MAP: Record<string, string> = {
-  "app url": "appUrl",
-  "app name": "appName",
-  "app persona": "appPersona",
+  "scenario url": "scenarioUrl",
   auth: "credentialsRef",
   session: "session",
   viewport: "viewport",

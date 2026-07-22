@@ -64,7 +64,7 @@ export function registerRunCommand(program: Command): void {
         return;
       }
 
-      console.log(`Running scenario "${scenario.slug}" against ${scenario.appUrl}...`);
+      console.log(`Running scenario "${scenario.slug}" against ${scenario.scenarioUrl ?? appOverview.url}...`);
       const findings = await runScenario(scenario, appOverview, config, { headed: options.headed });
 
       const outputPath = options.output ?? path.join(config.outputDir, `${scenario.slug}-findings.json`);
