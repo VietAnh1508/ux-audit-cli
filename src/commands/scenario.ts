@@ -3,7 +3,8 @@ import path from "node:path";
 import type { Command } from "commander";
 import { cancel, confirm, intro, isCancel, outro, text } from "@clack/prompts";
 import { resolveScenariosDir } from "../config/paths.js";
-import { loadConfig, ConfigLoadError } from "../config/loader.js";
+import { loadConfig, loadScenarios, ConfigLoadError } from "../config/loader.js";
+import type { ScenarioConfig } from "../types/index.js";
 
 function exitOnCancel<T>(value: T | symbol): T {
   if (isCancel(value)) {
@@ -20,6 +21,14 @@ async function fileExists(filePath: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function formatScenarioSummary(scenario: ScenarioConfig): string {
+  const details = [`viewport: ${scenario.viewport}`, `session: ${scenario.session}`];
+  if (scenario.credentialsRef) details.push(`auth: ${scenario.credentialsRef}`);
+  if (scenario.scenarioUrl) details.push(`url: ${scenario.scenarioUrl}`);
+  if (scenario.output) details.push(`output: ${scenario.output}`);
+  return `${scenario.slug}\n  ${details.join("  ")}`;
 }
 
 function slugify(name: string): string {
@@ -148,7 +157,25 @@ export function registerScenarioCommand(program: Command): void {
     .command("list")
     .description("List stored scenarios")
     .action(async () => {
-      throw new Error("not implemented — see docs/IMPLEMENTATION_PLAN.md Phase 1");
+      const cwd = process.cwd();
+
+      let scenarios: ScenarioConfig[];
+      try {
+        scenarios = await loadScenarios(cwd);
+      } catch (err) {
+        if (err instanceof ConfigLoadError) {
+          console.error(err.message);
+          process.exit(1);
+        }
+        throw err;
+      }
+
+      if (scenarios.length === 0) {
+        console.log("No scenarios found. Run `ux-audit scenario add` to create one.");
+        return;
+      }
+
+      console.log(scenarios.map(formatScenarioSummary).join("\n\n"));
     });
 
   scenario
