@@ -1,7 +1,7 @@
 # ux-audit CLI — Implementation Plan
 
-**Status: Phase 1 — next: `src/accessibility/axe-runner.ts`.
-`src/engine/run-scenario.ts` remains blocked on the shared-live-page spike — see
+**Status: Phase 1 — `src/accessibility/axe-runner.ts` done; next: `src/engine/run-scenario.ts`.
+It remains blocked on the shared-live-page spike — see
 [`phases/phase-1-single-scenario.md`](./phases/phase-1-single-scenario.md#gotchas--drift-from-plan)**
 (update this line in the same commit as whatever task you just closed out)
 
@@ -84,7 +84,7 @@ close out a task.
   - [x] `src/browser/mcp-bridge.ts`
   - [x] `src/backends/claude-code.ts` (`runScenario`)
   - [x] `src/engine/findings-handoff.ts`
-  - [ ] `src/accessibility/axe-runner.ts`
+  - [x] `src/accessibility/axe-runner.ts`
   - [ ] `src/engine/run-scenario.ts`
   - [ ] `src/commands/run.ts` (single scenario, no picker)
 - [ ] **Phase 2 — Multi-scenario + picker + report synthesis + concurrency** — not started.

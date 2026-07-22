@@ -1,9 +1,10 @@
 # Phase 1 — Single scenario, fixed W3C guideline, no picker
 
-Status: **in progress** — `src/backends/claude-code.ts` (`runScenario`) and
-`src/engine/findings-handoff.ts` are done; next up: `src/accessibility/axe-runner.ts`.
-`src/engine/run-scenario.ts` remains blocked on the open spike below — neither the adapter
-nor the findings-handoff read/validate/retry logic touches a page handle, so neither was
+Status: **in progress** — `src/backends/claude-code.ts` (`runScenario`),
+`src/engine/findings-handoff.ts`, and `src/accessibility/axe-runner.ts` are done; next up:
+`src/engine/run-scenario.ts`, which remains blocked on the open spike below — neither the
+adapter, the findings-handoff read/validate/retry logic, nor `axe-runner.ts` touches a
+*shared* page handle (it just takes whatever `Page` it's given), so none of the three were
 blocked by it. See
 [`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) for the checklist and current
 overall status; this doc is the detail behind it.
@@ -87,9 +88,15 @@ wired up.
   **Not yet exercised against a real subprocess**: this needs `run-scenario.ts` wired up
   first (see below) since that's what will actually construct `LlmBackendRunOptions` and
   call this function.
+- `runAxeScan` (`src/accessibility/axe-runner.ts`): thin wrapper around
+  `@axe-core/playwright`'s `AxeBuilder` — `new AxeBuilder({ page }).withTags(axeTags).analyze()`.
+  `AxeScanResult` is now a real type alias for axe-core's `AxeResults` (was `unknown`).
+  Not unit tested, matching this phase's testing strategy (real-browser code); not yet
+  exercised against a live page either — that needs `run-scenario.ts` wired up. `pnpm
+  typecheck` and `pnpm test` (17 tests, pre-existing suite) both clean after these changes.
 - Full Phase 1 **Acceptance** check (real findings JSON with axe + LLM findings) not
-  yet run — still blocked on `run-scenario.ts` below (needs `axe-runner.ts` next, then
-  the shared-live-page spike).
+  yet run — still blocked on `run-scenario.ts` below (needs the shared-live-page spike
+  resolved first).
 
 ## Gotchas / drift from plan
 
@@ -175,3 +182,19 @@ wired up.
   correct it. Confirm the configured viewport actually reaches the MCP-driven page as
   part of resolving that spike, or `browser_resize` needs to come back into the
   allowlist.
+- **`@axe-core/playwright`'s peer dep resolved to the wrong `playwright-core` by
+  default, breaking `Page` type compatibility.** `@playwright/mcp@0.0.78` vendors its
+  own alpha `playwright`/`playwright-core` (`1.62.0-alpha-...`), separate from the
+  `playwright@1.61.1` this repo depends on directly (the one `launch.ts`'s `Page` type
+  comes from). With only `@axe-core/playwright` declared, pnpm resolved its
+  `playwright-core: >= 1.0.0` peer dep against that alpha copy instead of `1.61.1`,
+  so `runAxeScan`'s `page: Page` parameter (typed via `playwright`) didn't
+  structurally match the `Page` type `AxeBuilder`'s constructor expected — a
+  `tsc` error, not a runtime one. Fixed by adding explicit `axe-core` and
+  `playwright-core` entries (both pinned to what `playwright@1.61.1` already
+  resolves to: `axe-core@4.12.1`, `playwright-core@1.61.1`) to `package.json`
+  dependencies, which pins pnpm's peer resolution to the matching copy — confirmed via
+  `pnpm-lock.yaml` (`@axe-core/playwright: 4.12.1(playwright-core@1.61.1)` after the
+  fix, `pnpm typecheck` clean). The mcp package's own alpha `playwright-core` copy is
+  still present in `node_modules/.pnpm` (it's an isolated subtree `@playwright/mcp`
+  uses for its own subprocess) — it just no longer leaks into our type-checked code.

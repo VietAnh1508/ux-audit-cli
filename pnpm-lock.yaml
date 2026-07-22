@@ -10,17 +10,23 @@ importers:
     dependencies:
       '@axe-core/playwright':
         specifier: ^4.12.1
-        version: 4.12.1(playwright-core@1.62.0-alpha-1783623505000)
+        version: 4.12.1(playwright-core@1.61.1)
       '@clack/prompts':
         specifier: ^1.7.0
         version: 1.7.0
       '@playwright/mcp':
         specifier: ^0.0.78
         version: 0.0.78
+      axe-core:
+        specifier: ^4.12.1
+        version: 4.12.1
       commander:
         specifier: ^15.0.0
         version: 15.0.0
       playwright:
+        specifier: ^1.61.1
+        version: 1.61.1
+      playwright-core:
         specifier: ^1.61.1
         version: 1.61.1
       zod:
@@ -755,10 +761,10 @@ snapshots:
       zod: 4.4.3
     optional: true
 
-  '@axe-core/playwright@4.12.1(playwright-core@1.62.0-alpha-1783623505000)':
+  '@axe-core/playwright@4.12.1(playwright-core@1.61.1)':
     dependencies:
       axe-core: 4.12.1
-      playwright-core: 1.62.0-alpha-1783623505000
+      playwright-core: 1.61.1
 
   '@babel/runtime@7.29.7':
     optional: true
