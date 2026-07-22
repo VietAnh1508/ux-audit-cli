@@ -1,8 +1,13 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { ZodError, ZodType } from "zod";
-import { AppConfigSchema, AppOverviewSchema, ScenarioConfigSchema } from "./schema.js";
-import { resolveAppOverviewPath, resolveConfigPath, resolveScenariosDir } from "./paths.js";
+import { AppConfigSchema, AppOverviewSchema, CredentialsFileSchema, ScenarioConfigSchema } from "./schema.js";
+import {
+  resolveAppOverviewPath,
+  resolveConfigPath,
+  resolveCredentialsPath,
+  resolveScenariosDir,
+} from "./paths.js";
 import type { AppConfig, AppOverview, Credentials, Guideline, ScenarioConfig } from "../types/index.js";
 
 export class ConfigLoadError extends Error {}
@@ -130,8 +135,40 @@ export async function loadScenarios(cwd?: string): Promise<ScenarioConfig[]> {
   return scenarios;
 }
 
-export async function loadCredentials(_ref: string, _cwd?: string): Promise<Credentials> {
-  throw new Error("not implemented — see docs/IMPLEMENTATION_PLAN.md Phase 1");
+export async function loadCredentials(ref: string, cwd?: string): Promise<Credentials> {
+  const credentialsPath = resolveCredentialsPath(cwd);
+
+  let rawData: string;
+  try {
+    rawData = await readFile(credentialsPath, "utf-8");
+  } catch (error) {
+    if (isEnoent(error)) {
+      throw new ConfigLoadError(
+        `Missing ${credentialsPath}. Create it with { "${ref}": { "email": ..., "password": ... } }.`,
+      );
+    }
+    throw error;
+  }
+
+  let data: unknown;
+  try {
+    data = JSON.parse(rawData);
+  } catch {
+    throw new ConfigLoadError(`${credentialsPath} is not valid JSON.`);
+  }
+
+  const result = CredentialsFileSchema.safeParse(data);
+  if (!result.success) {
+    throw new ConfigLoadError(`${credentialsPath} failed validation:\n${formatZodIssues(result.error)}`);
+  }
+
+  const credentials = result.data[ref];
+  if (!credentials) {
+    throw new ConfigLoadError(
+      `${credentialsPath} has no entry for "${ref}". Add it as { "${ref}": { "email": ..., "password": ... } }.`,
+    );
+  }
+  return credentials;
 }
 
 export async function loadGuideline(_name: string, _cwd?: string): Promise<Guideline> {

@@ -1,13 +1,88 @@
 # Phase 1 — Single scenario, fixed W3C guideline, no picker
 
-Status: **in progress** — `src/backends/claude-code.ts` (`runScenario`),
-`src/engine/findings-handoff.ts`, and `src/accessibility/axe-runner.ts` are done; next up:
-`src/engine/run-scenario.ts`, which remains blocked on the open spike below — neither the
-adapter, the findings-handoff read/validate/retry logic, nor `axe-runner.ts` touches a
-*shared* page handle (it just takes whatever `Page` it's given), so none of the three were
-blocked by it. See
+Status: **done** — all tasks below implemented, `pnpm typecheck`/`pnpm test` clean, and
+the Phase 1 **Acceptance** check passed against a real `claude -p` run. See
 [`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) for the checklist and current
 overall status; this doc is the detail behind it.
+
+## Process diagram
+
+How `ux-audit run` actually executes one scenario — three processes (the CLI, a
+Chromium instance, and two short-lived subprocesses), all pivoting around one shared
+`Page` object. Numbers match `src/engine/run-scenario.ts`'s call order.
+
+```
+┌─ ux-audit CLI process — run.ts → run-scenario.ts ────────────────────────┐
+│                                                                          │
+│ 1. load config.json / app.json / scenario.md                             │
+│ 2. resolveBackend() → backend.isAvailable() preflight                    │
+│ 3. checkUrlReachable(scenario.appUrl)                                    │
+│ 4. loadCredentials(scenario.credentialsRef)   — only if Auth is set      │
+│                                                                          │
+│ 5. launchBrowser(viewport)                                               │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+   │
+   ▼
+┌─ Chromium — its OWN process, --remote-debugging-port=P ──────────────────┐
+│                                                                          │
+│ context.newPage()  →  `page`                                             │
+│ (created blank — NOT navigated yet; the agent does that in step 7)       │
+│                                                                          │
+│ ★ this exact Page object is the "shared live page": every later          │
+│   step below (7 and 10) drives THIS SAME handle, never a second one      │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+   │
+   │ same CDP port P, new client
+   ▼
+┌─ @playwright/mcp — subprocess, spawned by startMcpBridge() ──────────────┐
+│                                                                          │
+│ 6. --cdp-endpoint http://127.0.0.1:P                                     │
+│    connectOverCDP(P) → browser.contexts()[0] == our exact page           │
+│    (confirmed empirically — see Gotchas, "shared-live-page spike")       │
+│                                                                          │
+│    exposes its own HTTP MCP server on port :M                            │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+   │
+   │ MCP protocol over HTTP:
+   │ mcp__playwright__browser_navigate / _click / …
+   ▼
+┌─ claude -p — subprocess, spawned by backend.runScenario() ───────────────┐
+│                                                                          │
+│ 7. --mcp-config    → the bridge's :M endpoint                            │
+│    --allowedTools  → mcp__playwright__* (UI/read-only only) + Write      │
+│                                                                          │
+│    walks the scenario's free-text steps, screenshotting at each          │
+│    key state, driving ONLY the shared page above via MCP tools           │
+│                                                                          │
+│    last step: Write findings.json → userDataDir/findings.json            │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+   │
+   │ claude -p exits
+   ▼
+┌─ back in the ux-audit CLI process — run-scenario.ts ─────────────────────┐
+│                                                                          │
+│ 8. readAndValidateFindings(findings.json)                                │
+│      invalid? → retry once (re-spawn claude -p, step 7) → else ERROR     │
+│                                                                          │
+│ 9. same-origin guard: is page.url() still on appUrl's origin?            │
+│      no → ERROR (the shared-page invariant broke)                        │
+│                                                                          │
+│ 10. runAxeScan(page, ["wcag22aa"])                                       │
+│       — direct Playwright call against the SAME page from step 5,        │
+│         no subprocess involved this time                                 │
+│                                                                          │
+│ 11. merge: findings = [...llmFindings, ...axeFindings]                   │
+│ 12. cleanup: stopMcpBridge() · browser.close() · rm(userDataDir)         │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+   │
+   ▼
+   <scenario-slug>-findings.json written to disk
+```
 
 ## Plan
 
@@ -34,6 +109,13 @@ exactly one scenario, no picker, no concurrency.
 - `src/engine/run-scenario.ts` — wire steps 1-7 together.
 - `src/commands/run.ts` — call `run-scenario` for a single resolved scenario (no
   `--scenario` parsing yet).
+- `src/config/loader.ts` (`loadCredentials`) — turned out to be a `run-scenario.ts`
+  dependency (step 1's "resolve credentials"), not a separate later task: reads
+  `credentials.local.json` (a `credentialsRef -> {email,password}` map, new
+  `CredentialsFileSchema` in `config/schema.ts`), with a friendly error naming the
+  missing ref if the file or key is absent — the file isn't scaffolded by `init` (it's
+  gitignored/user-authored), so it gets its own not-found message rather than the
+  generic `readOrThrowInitHint` "run `ux-audit init`" hint other loaders share.
 
 **Acceptance**: `ux-audit run` against a real local app produces one findings JSON
 file with real axe results and at least one LLM-authored finding.
@@ -66,13 +148,11 @@ wired up.
   `success: true`); (3) a repo-contamination check — ran with cwd set to a scratch dir
   seeded with a marker `CLAUDE.md` and a marker `settings.json` hook standing in for a
   real audited app's repo, confirmed neither leaked into the findings and no
-  `.playwright-mcp/` artifacts landed in that directory. **Not exercised**: the
-  `authenticated`/`fresh`-with-credentials prompt branches, or the `BLOCKED`/`ERROR`
-  status paths — doing so needs a real app + test credentials, which this phase's scope
-  (adapter only, no `run-scenario.ts` wiring yet) didn't include. Revisit once
-  `run-scenario.ts` exists and there's a real app with an auth flow to point it at.
-  `pnpm typecheck` and `pnpm test` (17 tests, pre-existing suite) both clean after these
-  changes.
+  `.playwright-mcp/` artifacts landed in that directory. **Still not exercised**: the
+  `authenticated`/`fresh`-with-credentials prompt branches — doing so needs a real app +
+  test credentials; the no-auth path is covered by the full Phase 1 acceptance run
+  below. `pnpm typecheck` and `pnpm test` (17 tests, pre-existing suite) both clean after
+  these changes.
 - `readAndValidateFindings` (`src/engine/findings-handoff.ts`): implemented per plan —
   read the findings file, `safeParse` against `ScenarioFindingsSchema`, and on failure
   (missing file, bad JSON, or schema mismatch) re-invoke `backend.runScenario` once with
@@ -83,20 +163,32 @@ wired up.
   object with the validation error in `notes`, matching the old skill's
   Chrome-unavailable `ERROR` convention referenced in `UX_AUDIT_CLI_PLAN.md` Open risks.
   Not unit tested, matching this phase's testing strategy — the only non-trivial branch
-  (the retry) depends on a real backend subprocess, not mockable logic. `pnpm typecheck`
-  and `pnpm test` (17 tests, pre-existing suite) both clean after these changes.
-  **Not yet exercised against a real subprocess**: this needs `run-scenario.ts` wired up
-  first (see below) since that's what will actually construct `LlmBackendRunOptions` and
-  call this function.
+  (the retry) depends on a real backend subprocess, not mockable logic. Exercised
+  indirectly via the full acceptance run below (first-attempt success path, i.e. the
+  retry branch itself still hasn't been forced/observed live — would need a scenario
+  deliberately crafted to make the agent write malformed JSON).
 - `runAxeScan` (`src/accessibility/axe-runner.ts`): thin wrapper around
   `@axe-core/playwright`'s `AxeBuilder` — `new AxeBuilder({ page }).withTags(axeTags).analyze()`.
   `AxeScanResult` is now a real type alias for axe-core's `AxeResults` (was `unknown`).
-  Not unit tested, matching this phase's testing strategy (real-browser code); not yet
-  exercised against a live page either — that needs `run-scenario.ts` wired up. `pnpm
-  typecheck` and `pnpm test` (17 tests, pre-existing suite) both clean after these changes.
-- Full Phase 1 **Acceptance** check (real findings JSON with axe + LLM findings) not
-  yet run — still blocked on `run-scenario.ts` below (needs the shared-live-page spike
-  resolved first).
+  Not unit tested, matching this phase's testing strategy (real-browser code); exercised
+  against a live page via the acceptance run below, and separately against a local
+  static page with deliberate violations (missing `alt`, missing `<html lang>`, no
+  `<h1>`, etc.) to confirm the axe→`Finding` mapping in `run-scenario.ts` produces
+  well-formed output from real violation data — see Gotchas below re: `wcag22aa`'s tag
+  scope.
+- **Full Phase 1 Acceptance check: passed.** `src/engine/run-scenario.ts` and
+  `src/commands/run.ts` implemented and run end-to-end via
+  `../../node_modules/.bin/tsx ../../src/cli.ts run` against a scratch `.ux-audit/`
+  pointed at `https://example.com` (no-auth, fresh session), with a real, logged-in
+  `claude` CLI as the backend. Produced `home-findings.json` with `status: "OK"` and
+  three real LLM-authored findings (information density, visual hierarchy, CTA
+  clarity) — axe found zero violations for that page under the `wcag22aa` tag filter
+  (confirmed separately as a real, not silently-skipped, result — see Gotchas). `pnpm
+  typecheck` and `pnpm test` (17 tests) both clean.
+- **Not yet exercised end-to-end**: the `authenticated`/`fresh`-with-credentials
+  branches (needs a real app with auth), the `BLOCKED`/`ERROR` status paths, and the
+  new same-origin shared-page guard actually tripping (needs a scenario where the
+  agent's final page genuinely ends up off-origin, e.g. via an OAuth redirect/popup).
 
 ## Gotchas / drift from plan
 
@@ -108,21 +200,33 @@ wired up.
   `--allowedTools` allowlist in `claude-code.ts` instead. Anyone touching MCP bridge
   setup or the allowlist should know this is the *only* enforcement point now — commit
   `3eda4e7`.
-- **Open risk, currently blocking `run-scenario.ts`**: the "shared live page" premise
-  (our own axe/screenshot code and the LLM backend's MCP tool calls operating on the
-  same tab) is not automatic. Smoke-tested three orderings — (a) our own
-  `context.newPage()` before the bridge starts, (b) a separate `connectOverCDP` call
-  before the bridge starts, (c) attaching via `connectOverCDP` *after* the bridge
-  already navigated — and in all three, our Playwright connection's `context.pages()`
-  came back empty/stale after `@playwright/mcp` drove a `browser_navigate` over its own
-  CDP connection. Two independent `connectOverCDP` clients on the same
-  `--remote-debugging-port` do not transparently see each other's pages/contexts by
-  default. **Needs a working spike before `run-scenario.ts` is implemented.**
-  Candidates: (1) poll/re-query `browser.contexts()`/`Target.getTargets` after the
-  bridge acts instead of caching the page reference, (2) drive everything (our axe
-  scans included) through the MCP connection's own page handle rather than a second
-  Playwright connection, (3) a different CDP attach sequencing entirely. Confirm which
-  works before assuming either side can address "the" page — commit `3eda4e7`.
+- **Shared-live-page spike resolved — the original premise holds, no workaround
+  needed.** Re-tested end-to-end against the real (non-mocked) `@playwright/mcp`
+  subprocess: `launchBrowser()` creates the context + page (blank, not navigated —
+  matching the real flow where the *agent* does the first `browser_navigate`, not us),
+  *then* `startMcpBridge()` starts and a real MCP `tools/call browser_navigate` is sent
+  over raw HTTP (bypassing `claude -p` — irrelevant here since the server's own
+  `ensureTab()` picks the tab, not the client). Result: `@playwright/mcp`'s internal
+  `browser.contexts()[0]` (its own `isolated: false` path, since `--cdp-endpoint` is
+  set) resolves to our exact context, and its per-session `ensureTab()`/`newTab()`
+  adopts our pre-existing page — confirmed by `context.pages().length` staying `1` and
+  our original `Page` handle's `.url()` updating to the navigated URL after the tool
+  call returns. The configured viewport (1280×800) survives on that same handle too —
+  closing the `browser_resize` question below. After killing the bridge subprocess,
+  the original `Page` handle remained open and usable (`.title()`, `.screenshot()`) —
+  confirming `run-scenario.ts` can hand the exact `page` from `launchBrowser()` straight
+  to `runAxeScan()` after `backend.runScenario()` resolves, no second connection or
+  polling required. The earlier three-ordering failure (commit `3eda4e7`) was most
+  likely masked by the sibling `mcp-config.json` `"type": "http"` bug documented below —
+  fixed in the same commit — rather than a real CDP multi-client limitation; not worth
+  reproducing further. **Guard added in `run-scenario.ts`**: since this only holds
+  because `browser_tabs`/`browser_resize` are excluded from the allowlist (an
+  OAuth-popup or similar could still spawn a second page and make `page.url()` stale),
+  after `backend.runScenario()` returns with `status: "OK"`, `run-scenario.ts` checks
+  `page.url()` is on `scenario.appUrl`'s origin before trusting it for the axe scan —
+  if not, the scenario is surfaced as `ERROR` instead of scanning a blank/stale page.
+  Not yet exercised against an auth scenario (only the no-auth `example.com`/
+  `playwright.dev` case above) — revisit if an auth-flow popup breaks this.
 - **`mcp-bridge.ts` wrote an mcp-config.json that `claude -p` silently ignored.** The
   written config was `{ "mcpServers": { "playwright": { "url": "..." } } }` — missing a
   `"type": "http"` field. `claude --mcp-config` doesn't error on this; it just doesn't
@@ -173,15 +277,11 @@ wired up.
   `--setting-sources ""` was actually verified against: CLAUDE.md and a settings.json
   hook — it closes the primary contamination vectors, not necessarily every one (skills,
   custom agents, and auto-memory are a separate load path and weren't tested).
-- **Open item for whoever resolves the shared-live-page spike**: `browser_resize` was
-  deliberately excluded from the adapter's allowlist (viewport is meant to be fixed by
-  `launchBrowser`'s context, not the agent) — but `launchBrowser` sizes *its own*
-  context's page, and the spike above already found that `@playwright/mcp`'s CDP client
-  may end up driving a *different* context/page than ours. If that's the case, a
-  `mobile` scenario could silently run at desktop width with no way for the agent to
-  correct it. Confirm the configured viewport actually reaches the MCP-driven page as
-  part of resolving that spike, or `browser_resize` needs to come back into the
-  allowlist.
+- **`browser_resize` exclusion confirmed safe** — the shared-live-page spike above
+  verified the configured viewport (1280×800 in that test) reaches the MCP-driven page
+  intact (`page.viewportSize()` read back correctly after a real `browser_navigate`),
+  since it's the same `Page` object, not a re-created one. `browser_resize` stays out
+  of the adapter's allowlist as originally planned.
 - **`@axe-core/playwright`'s peer dep resolved to the wrong `playwright-core` by
   default, breaking `Page` type compatibility.** `@playwright/mcp@0.0.78` vendors its
   own alpha `playwright`/`playwright-core` (`1.62.0-alpha-...`), separate from the
@@ -198,3 +298,77 @@ wired up.
   fix, `pnpm typecheck` clean). The mcp package's own alpha `playwright-core` copy is
   still present in `node_modules/.pnpm` (it's an isolated subtree `@playwright/mcp`
   uses for its own subprocess) — it just no longer leaks into our type-checked code.
+- **The `w3c` guideline's `wcag22aa`-only axe tag flags almost nothing in practice —
+  worth fixing properly in Phase 3, not now.** `wcag22aa` is the *delta* tagset for
+  criteria newly added in WCAG 2.2 (a handful of rules like focus-appearance/
+  target-size), not "all AA-level rules." Confirmed empirically: a local static page
+  with deliberate `image-alt`, `html-has-lang`, `page-has-heading-one`, and
+  `color-contrast` violations scored **zero** violations under `--tags wcag22aa` but
+  **six** under no tag filter — so `init.ts`'s current `{ name: "w3c", axeTags:
+  ["wcag22aa"] }` (Phase 0) under-covers what most people mean by "WCAG AA compliance."
+  Left as-is for Phase 1 (guideline *content* is explicitly Phase 3's job, and changing
+  it now would mean redefining what "w3c" means without the presets/custom-checklist
+  machinery Phase 3 is scoped to add) — but Phase 3 should combine `wcag2a` + `wcag2aa`
+  + `wcag21aa` + `wcag22aa` (the full AA baseline through 2.2) for a preset actually
+  meant to represent AA compliance, not just the 2.2 delta.
+- **Live progress log added to `ClaudeCodeBackend.runScenario`** — the subprocess used
+  to run with `stdio: ["pipe", "ignore", "pipe"]` (stdout deliberately unconsumed, since
+  findings go to a file, not stdout), which left the terminal blank for the full
+  multi-minute scenario walk. Switched to `--output-format stream-json --verbose`
+  (confirmed empirically: `claude -p --output-format stream-json` errors without
+  `--verbose`) piped through a small NDJSON line-buffering logger
+  (`createStreamJsonLogger`/`logStreamEvent`) that prints each `assistant` message's
+  `text`/`tool_use` content blocks live, plus a one-line `result` summary at the end.
+  This also incidentally fixes the old deadlock risk the "ignore" comment called out
+  (an unconsumed pipe filling its OS buffer) — the logger now actively drains stdout.
+  `run-scenario.ts` also gained its own `→ ...` progress lines around the parts that
+  aren't part of the LLM subprocess at all (opening the browser, starting the bridge,
+  running the axe scan, cleanup), so nothing is silent end-to-end. Exercised against a
+  real `claude -p` run — output looked like:
+  ```
+  → Opening browser (desktop)...
+  → Starting the accessibility bridge...
+  → Auditing in progress — claude-code is walking the scenario...
+    🔧 browser_navigate({"url":"https://example.com"})
+    🔧 browser_take_screenshot({"type":"png",...})
+    💬 Completed the walkthrough of example.com...
+    ✓ claude -p finished in 55.3s
+  → Running accessibility scan...
+  ```
+  **Side discovery from having this visibility at all**: in that same run, the agent
+  also attempted several `Bash`/`Read`/`ToolSearch` tool calls (not in `ALLOWED_TOOLS`)
+  trying to locate and re-read its own screenshot file after `browser_take_screenshot`,
+  before eventually finding it and proceeding — these are denied cleanly (per the
+  existing "denied tool doesn't hang" finding above) so the run still succeeded, but
+  it's wasted turns that were completely invisible before this logging existed.
+- **Root-caused and fixed the wasted-`Read` churn above — it was also silently causing
+  real timeouts on larger apps.** A user's own multi-page scenario
+  (`fresh-visitor-walkthrough`, ~15 pages/tabs across a real Next.js app) failed with
+  `claude -p exited with code 143`. Two compounding bugs, both fixed:
+  1. **Root cause**: read `@playwright/mcp`'s `browser_take_screenshot` handler
+     (`coreBundle.js`) — it only returns the image inline (viewable by the model,
+     `registerImageResult`) when called with **no** `filename` argument; passing
+     `filename` saves to disk instead (`addFileResult`) and the model gets no image
+     data back. The agent was passing a `filename` on every call (to be "organized"),
+     then trying to `Read` the file to actually see it — denied every time, since
+     `Read` isn't in `ALLOWED_TOOLS`. One wasted turn per screenshot, and a 15-page
+     walkthrough takes a lot of screenshots. Fixed in `buildPrompt()`
+     (`claude-code.ts`): explicitly tell the agent to omit `filename` (image comes
+     back inline that way) and added a "don't try to read screenshots back, you have
+     no file access" guardrail to the prompt's "Do not" list.
+  2. **Symptom-side bug**: confirmed empirically (`node -e` spawning a real `claude -p`
+     with a 3s Node `timeout`) that when Node's `spawn(..., {timeout})` kills the child
+     with SIGTERM, `claude` catches it and exits with **code 143** — the `close` event
+     reports `code: 143, signal: null`, never `signal: "SIGTERM"`. The old handler only
+     checked `if (signal)`, so a real `RUN_TIMEOUT_MS` timeout surfaced as the
+     unhelpful "claude -p exited with code 143" with no hint it was a timeout. Fixed:
+     `if (signal || code === 143)` now catches both, with a message naming
+     `RUN_TIMEOUT_MS` and suggesting raising it if a scenario legitimately needs longer.
+  3. **Verified fix**: re-ran the exact same scenario end-to-end against the real app
+     after both fixes. Zero denied `Read` calls across the entire walk (previously one
+     per screenshot); `claude -p finished in 446.5s` (~7.4 min, comfortably under the
+     10-minute `RUN_TIMEOUT_MS`) with `status: "OK"` and 10 real, specific LLM findings
+     covering every nav tab plus the account menu. The old run, by contrast, was only
+     partway through the walk (signin/champion) by the ~4-minute mark before eventually
+     hitting the timeout. Axe found zero violations again under the narrow `wcag22aa`
+     tag filter — consistent with the gotcha above, not a new issue.

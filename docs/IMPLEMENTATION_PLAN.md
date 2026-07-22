@@ -1,8 +1,9 @@
 # ux-audit CLI — Implementation Plan
 
-**Status: Phase 1 — `src/accessibility/axe-runner.ts` done; next: `src/engine/run-scenario.ts`.
-It remains blocked on the shared-live-page spike — see
-[`phases/phase-1-single-scenario.md`](./phases/phase-1-single-scenario.md#gotchas--drift-from-plan)**
+**Status: Phase 1 — `src/engine/run-scenario.ts` and `src/commands/run.ts` done, both
+exercised against a real `claude -p` run. Phase 1 acceptance check passed — see
+[`phases/phase-1-single-scenario.md`](./phases/phase-1-single-scenario.md#testing-evidence).
+Next: Phase 2.**
 (update this line in the same commit as whatever task you just closed out)
 
 This is the execution checklist. For *why* each decision was made, see
@@ -76,7 +77,7 @@ close out a task.
 
 - [x] **Phase 0 — Scaffolding & preflight** — done.
       → [`phases/phase-0-scaffolding.md`](./phases/phase-0-scaffolding.md)
-- [ ] **Phase 1 — Single scenario, fixed W3C guideline, no picker** — in progress.
+- [x] **Phase 1 — Single scenario, fixed W3C guideline, no picker** — done.
       → [`phases/phase-1-single-scenario.md`](./phases/phase-1-single-scenario.md)
   - [x] Scenario file format + `loadScenarios`
   - [x] `src/commands/scenario.ts` (`add`)
@@ -85,8 +86,8 @@ close out a task.
   - [x] `src/backends/claude-code.ts` (`runScenario`)
   - [x] `src/engine/findings-handoff.ts`
   - [x] `src/accessibility/axe-runner.ts`
-  - [ ] `src/engine/run-scenario.ts`
-  - [ ] `src/commands/run.ts` (single scenario, no picker)
+  - [x] `src/engine/run-scenario.ts`
+  - [x] `src/commands/run.ts` (single scenario, no picker)
 - [ ] **Phase 2 — Multi-scenario + picker + report synthesis + concurrency** — not started.
       → [`phases/phase-2-multi-scenario.md`](./phases/phase-2-multi-scenario.md)
 - [ ] **Phase 3 — Guideline presets + custom rules** — not started.

@@ -37,9 +37,15 @@ export async function getFreePort(): Promise<number> {
 // Launches Playwright with a remote-debugging port so @playwright/mcp (see mcp-bridge.ts)
 // and our own deterministic steps (axe scan, screenshots) share the same live page.
 // See docs/UX_AUDIT_CLI_PLAN.md Execution engine step 2, docs/IMPLEMENTATION_PLAN.md Phase 1.
-export async function launchBrowser(viewport: "desktop" | "mobile"): Promise<LaunchedBrowser> {
+export async function launchBrowser(
+  viewport: "desktop" | "mobile",
+  options: { headless?: boolean } = {},
+): Promise<LaunchedBrowser> {
   const port = await getFreePort();
-  const browser = await chromium.launch({ args: [`--remote-debugging-port=${port}`] });
+  const browser = await chromium.launch({
+    headless: options.headless ?? true,
+    args: [`--remote-debugging-port=${port}`],
+  });
   const context = await browser.newContext({ viewport: VIEWPORT_SIZES[viewport] });
   const page = await context.newPage();
   return { browser, page, cdpEndpoint: `http://127.0.0.1:${port}` };

@@ -72,6 +72,65 @@ function formatCredentials(credentials?: Credentials): string {
   return `**Login credentials:** email: ${credentials.email} / password: ${credentials.password}\n`;
 }
 
+// Loose shape of --output-format stream-json NDJSON events — confirmed empirically
+// against a real `claude -p --output-format stream-json --verbose` run (assistant
+// messages carry text/tool_use content blocks; the final line is a `result` event).
+// Not the full SDK message type — only the fields this logger reads.
+interface StreamJsonEvent {
+  type: string;
+  message?: { content?: Array<{ type: string; text?: string; name?: string; input?: unknown }> };
+  is_error?: boolean;
+  duration_ms?: number;
+}
+
+const MCP_TOOL_PREFIX = `mcp__${PLAYWRIGHT_MCP_SERVER_NAME}__`;
+const MAX_LOG_LINE_LENGTH = 300;
+
+function truncate(text: string, max: number = MAX_LOG_LINE_LENGTH): string {
+  const oneLine = text.replace(/\s+/g, " ").trim();
+  return oneLine.length > max ? `${oneLine.slice(0, max)}…` : oneLine;
+}
+
+// Prints a live progress log from the subprocess's stream-json output — otherwise the
+// user stares at a blank terminal for the minutes a scenario walk can take. Best-effort:
+// unrecognized/malformed lines are silently skipped, never fail the run.
+function logStreamEvent(line: string): void {
+  let event: StreamJsonEvent;
+  try {
+    event = JSON.parse(line);
+  } catch {
+    return;
+  }
+
+  if (event.type === "assistant") {
+    for (const block of event.message?.content ?? []) {
+      if (block.type === "text" && block.text) {
+        console.log(`  💬 ${truncate(block.text)}`);
+      } else if (block.type === "tool_use" && block.name) {
+        const toolName = block.name.startsWith(MCP_TOOL_PREFIX) ? block.name.slice(MCP_TOOL_PREFIX.length) : block.name;
+        console.log(`  🔧 ${toolName}(${truncate(JSON.stringify(block.input ?? {}), 150)})`);
+      }
+    }
+  } else if (event.type === "result") {
+    const seconds = event.duration_ms ? (event.duration_ms / 1000).toFixed(1) : "?";
+    console.log(`  ${event.is_error ? "✗" : "✓"} claude -p finished in ${seconds}s`);
+  }
+}
+
+// NDJSON lines aren't guaranteed to align with stdout chunk boundaries — buffer partial
+// lines across chunks and only parse complete ones.
+function createStreamJsonLogger(): (chunk: Buffer) => void {
+  let buffer = "";
+  return (chunk: Buffer) => {
+    buffer += chunk.toString("utf-8");
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (line.trim()) logStreamEvent(line);
+    }
+  };
+}
+
 function sessionInstructions(session: "fresh" | "authenticated", credentials?: Credentials): string {
   if (!credentials) {
     return "This scenario is public-facing — no sign-in is required. Navigate directly to the App URL and begin.";
@@ -102,12 +161,13 @@ ${
     : ""
 }
 
-A browser is open and controllable through the connected browser tools — navigate to the App URL below to begin. Accessibility scanning (axe-core) runs separately outside this session — focus on subjective UX judgment: visual hierarchy, CTA clarity, copy quality, empty/loading states, feedback after actions, information density, friction, and anything a first-time user would find confusing. Take a screenshot at each key state (initial load, after each interaction, error states, confirmation states) and note the screen name/state as you go.
+A browser is open and controllable through the connected browser tools — navigate to the App URL below to begin. Accessibility scanning (axe-core) runs separately outside this session — focus on subjective UX judgment: visual hierarchy, CTA clarity, copy quality, empty/loading states, feedback after actions, information density, friction, and anything a first-time user would find confusing. Take a screenshot at each key state (initial load, after each interaction, error states, confirmation states) and note the screen name/state as you go. Call the screenshot tool with NO "filename" argument — omitting it returns the image to you directly so you can see it right away; passing a filename saves it to disk instead and you will not be able to view it.
 
 Do not:
 - trigger alert()/confirm()/prompt() dialogs — they block the browser
 - navigate outside the app's origin
 - reload the page, close the tab, or open new tabs
+- try to read a screenshot back from disk (e.g. via a file-reading tool) — you don't have file access; the image comes back inline when you omit "filename" as above
 
 ## App
 
@@ -207,13 +267,21 @@ export class ClaudeCodeBackend implements LlmBackend {
           ALLOWED_TOOLS.join(","),
           "--append-system-prompt",
           SCOPE_GUARDRAIL,
+          // NDJSON of every message/tool-call as it happens, instead of one blob at the
+          // end — piped through createStreamJsonLogger() below so the user sees live
+          // progress during the minutes a scenario walk can take. --verbose is required
+          // by `claude -p` alongside stream-json (confirmed: it errors without it).
+          "--output-format",
+          "stream-json",
+          "--verbose",
         ],
         {
-          // stdout is intentionally unconsumed below (findings go to a file, not stdout) —
-          // "ignore" it rather than "pipe" so an unbounded final message can't fill the OS
-          // pipe buffer and deadlock the child mid-write (close would then never fire, and
-          // RUN_TIMEOUT_MS would misreport a real hang as "timed out").
-          stdio: ["pipe", "ignore", "pipe"],
+          // stdout is now actively drained by createStreamJsonLogger() below (not
+          // "ignore"d) — that doubles as the fix for the old deadlock risk this stdio
+          // setting used to guard against (an unconsumed pipe filling its OS buffer and
+          // blocking the child mid-write, so `close` never fires and RUN_TIMEOUT_MS
+          // misreports a real hang as "timed out").
+          stdio: ["pipe", "pipe", "pipe"],
           timeout: RUN_TIMEOUT_MS,
           // --setting-sources "" above is the real guard against the audited repo's own
           // CLAUDE.md/hooks. This cwd is only extra insurance, so it must be a directory
@@ -228,11 +296,20 @@ export class ClaudeCodeBackend implements LlmBackend {
       proc.stderr.on("data", (chunk: Buffer) => {
         stderr += chunk.toString("utf-8");
       });
+      proc.stdout.on("data", createStreamJsonLogger());
       proc.once("error", reject);
       proc.once("close", (code, signal) => {
-        if (signal) {
+        // Node's `timeout` option kills the child with SIGTERM, but confirmed
+        // empirically that `claude` catches it and exits with code 143 (128 + SIGTERM's
+        // signal number 15) rather than Node reporting `signal: "SIGTERM"` — so `code
+        // === 143` is the actual signal a timeout fired, not just a truthy `signal`.
+        if (signal || code === 143) {
           reject(
-            new Error(`claude -p was killed with ${signal} (likely timed out after ${RUN_TIMEOUT_MS}ms)\n${stderr}`),
+            new Error(
+              `claude -p was terminated (code ${code}, signal ${signal}) — likely timed out after ` +
+                `${RUN_TIMEOUT_MS}ms. If the scenario legitimately needs longer (more pages/screenshots), ` +
+                `increase RUN_TIMEOUT_MS in src/backends/claude-code.ts.\n${stderr}`,
+            ),
           );
           return;
         }

@@ -38,6 +38,9 @@ export const CredentialsSchema = z.object({
   password: z.string(),
 });
 
+// credentials.local.json shape: a map of credentialsRef -> Credentials.
+export const CredentialsFileSchema = z.record(z.string(), CredentialsSchema);
+
 export const GuidelineSchema = z.object({
   name: z.string(),
   axeTags: z.array(z.string()),
