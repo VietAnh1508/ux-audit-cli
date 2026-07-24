@@ -1,19 +1,12 @@
 import { writeFile } from "node:fs/promises";
 import type { Command } from "commander";
-import { cancel, intro, isCancel, outro, text } from "@clack/prompts";
+import { intro, outro, text } from "@clack/prompts";
 import { AppOverviewSchema } from "../config/schema.js";
 import { resolveAppOverviewPath } from "../config/paths.js";
 import { loadAppOverview, ConfigLoadError } from "../config/loader.js";
 import type { AppOverview } from "../types/index.js";
 import { APP_OVERVIEW_FIELDS } from "./app-overview-fields.js";
-
-function exitOnCancel<T>(value: T | symbol): T {
-  if (isCancel(value)) {
-    cancel("app edit cancelled.");
-    process.exit(1);
-  }
-  return value;
-}
+import { exitOnCancel } from "../utils/prompts.js";
 
 // Updates the stored app overview (name, URL, description, core business, target users)
 // without re-running the full `init` flow. See docs/UX_AUDIT_CLI_PLAN.md Decision 6.
@@ -47,6 +40,7 @@ export function registerAppCommand(program: Command): void {
             initialValue: current[field.key],
             validate: (input) => field.validate(input ?? ""),
           }),
+          "app edit cancelled.",
         );
         answers[field.key] = value.trim();
       }

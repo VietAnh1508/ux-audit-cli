@@ -1,9 +1,11 @@
 # ux-audit CLI — Implementation Plan
 
-**Status: Phase 1 — `src/engine/run-scenario.ts` and `src/commands/run.ts` done, both
-exercised against a real `claude -p` run. Phase 1 acceptance check passed — see
-[`phases/phase-1-single-scenario.md`](./phases/phase-1-single-scenario.md#testing-evidence).
-Next: Phase 2.**
+**Status: Phase 2, in progress — scenario selection done (`--scenario` comma-separated
+slugs with unknown-slug validation, `@clack/prompts` multi-select picker when >1
+scenario is on disk), manually exercised against a scratch `.ux-audit/` — see
+[`phases/phase-2-multi-scenario.md`](./phases/phase-2-multi-scenario.md#testing-evidence).
+Next: concurrency (`p-limit` pool, resolve backend once), then report synthesis
+(schema extensions, `synthesize.ts`, `render.ts`), then wiring combined output.**
 (update this line in the same commit as whatever task you just closed out)
 
 This is the execution checklist. For *why* each decision was made, see
@@ -88,8 +90,11 @@ close out a task.
   - [x] `src/accessibility/axe-runner.ts`
   - [x] `src/engine/run-scenario.ts`
   - [x] `src/commands/run.ts` (single scenario, no picker)
-- [ ] **Phase 2 — Multi-scenario + picker + report synthesis + concurrency** — not started.
+- [ ] **Phase 2 — Multi-scenario + picker + report synthesis + concurrency** — in progress.
       → [`phases/phase-2-multi-scenario.md`](./phases/phase-2-multi-scenario.md)
+  - [x] `src/commands/run.ts` — `--scenario` parsing + multi-select picker (comma-separated
+        slugs with unknown-slug validation, checkbox picker when >1 scenario is on disk,
+        cancelled/empty selection both exit 1)
   - [ ] `src/config/schema.ts` / `types/index.ts` — `ScreenNoteSchema`,
         `ScenarioFindingsSchema.screens` (retroactive Phase 1 extension)
   - [ ] `src/backends/claude-code.ts` — `buildPrompt()` screen-notes instructions,
@@ -101,8 +106,7 @@ close out a task.
   - [ ] `src/report/synthesize.ts` (`synthesizeReport`)
   - [ ] `src/report/render.ts` (`renderMarkdown`, single + multi mode) — unit tested
   - [ ] `src/engine/run-scenario.ts` — accept a pre-resolved `backend` param
-  - [ ] `src/commands/run.ts` — `--scenario` parsing, multi-select picker, `p-limit`
-        concurrency pool, output wiring
+  - [ ] `src/commands/run.ts` — `p-limit` concurrency pool, combined report output wiring
   - [ ] `package.json` — add `p-limit` dependency
 - [ ] **Phase 3 — Guideline presets + custom rules** — not started.
       → [`phases/phase-3-guideline-presets.md`](./phases/phase-3-guideline-presets.md)

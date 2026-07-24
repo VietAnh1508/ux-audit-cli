@@ -1,18 +1,23 @@
+import {
+  cancel,
+  confirm,
+  intro,
+  multiselect,
+  outro,
+  text,
+} from "@clack/prompts";
+import type { Command } from "commander";
 import { mkdir, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { Command } from "commander";
-import { cancel, confirm, intro, isCancel, multiselect, outro, text } from "@clack/prompts";
+import {
+  ConfigLoadError,
+  loadConfig,
+  loadScenarios,
+} from "../config/loader.js";
 import { resolveScenariosDir } from "../config/paths.js";
-import { loadConfig, loadScenarios, ConfigLoadError } from "../config/loader.js";
 import type { ScenarioConfig } from "../types/index.js";
-
-function exitOnCancel<T>(value: T | symbol, message = "Cancelled."): T {
-  if (isCancel(value)) {
-    cancel(message);
-    process.exit(1);
-  }
-  return value;
-}
+import { exitOnCancel } from "../utils/prompts.js";
+import { formatScenarioSummary } from "../utils/scenario-format.js";
 
 async function fileExists(filePath: string): Promise<boolean> {
   try {
@@ -24,7 +29,11 @@ async function fileExists(filePath: string): Promise<boolean> {
 }
 
 function isEnoent(error: unknown): boolean {
-  return error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT";
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error as NodeJS.ErrnoException).code === "ENOENT"
+  );
 }
 
 async function listScenarioSlugs(scenariosDir: string): Promise<string[]> {
@@ -39,14 +48,6 @@ async function listScenarioSlugs(scenariosDir: string): Promise<string[]> {
     .filter((name) => name.toLowerCase().endsWith(".md"))
     .map((name) => name.replace(/\.md$/i, ""))
     .sort();
-}
-
-function formatScenarioSummary(scenario: ScenarioConfig): string {
-  const details = [`viewport: ${scenario.viewport}`, `session: ${scenario.session}`];
-  if (scenario.credentialsRef) details.push(`auth: ${scenario.credentialsRef}`);
-  if (scenario.scenarioUrl) details.push(`url: ${scenario.scenarioUrl}`);
-  if (scenario.output) details.push(`output: ${scenario.output}`);
-  return `${scenario.slug}\n  ${details.join("  ")}`;
 }
 
 function slugify(name: string): string {
@@ -66,7 +67,7 @@ function slugify(name: string): string {
 function buildScenarioTemplate(name: string): string {
   return `# ${name}
 
-<!-- Short name for this journey, e.g. "New User Onboarding" or "Core Voting Loop" -->
+<!-- Short name for this journey, e.g. "New User Onboarding" -->
 
 <!-- Scenario URL: only needed when this scenario should start on a different page
      than app.json's URL, e.g. a deep link to a specific settings page. Omit to start
@@ -76,11 +77,16 @@ function buildScenarioTemplate(name: string): string {
 
 **Auth:** test-user
 
-<!-- Auth: a key into .ux-audit/credentials.local.json, e.g. "test-user" ->
-     { "email": "...", "password": "..." }. Use a dedicated test account created
-     solely for this audit — never a personal or production account.
-     Omit this field entirely for public pages (landing pages, product listings, etc.)
-     that do not require sign-in. -->
+<!-- Auth: a key into .ux-audit/credentials.local.json. That file maps each key to an
+     { email, password } pair, e.g. with Auth set to "test-user":
+
+       {
+         "test-user": { "email": "test@example.com", "password": "..." }
+       }
+
+     Use a dedicated test account created solely for this audit — never a personal or
+     production account. Omit this field entirely for public pages (landing pages,
+     product listings, etc.) that do not require sign-in. -->
 
 **Session:** fresh
 
@@ -112,7 +118,9 @@ seen this app before.
 }
 
 export function registerScenarioCommand(program: Command): void {
-  const scenario = program.command("scenario").description("Manage stored scenarios");
+  const scenario = program
+    .command("scenario")
+    .description("Manage stored scenarios");
 
   scenario
     .command("add [name]")
@@ -135,7 +143,9 @@ export function registerScenarioCommand(program: Command): void {
       let name: string;
       if (nameArg) {
         if (!slugify(nameArg)) {
-          cancel(`"${nameArg}" doesn't contain any usable characters for a scenario name.`);
+          cancel(
+            `"${nameArg}" doesn't contain any usable characters for a scenario name.`,
+          );
           process.exit(1);
         }
         name = nameArg;
@@ -143,7 +153,8 @@ export function registerScenarioCommand(program: Command): void {
         name = exitOnCancel(
           await text({
             message: 'Scenario name (e.g. "New User Onboarding")',
-            validate: (input) => (slugify(input ?? "") ? undefined : "Required"),
+            validate: (input) =>
+              slugify(input ?? "") ? undefined : "Required",
           }),
           "scenario add cancelled.",
         );
@@ -170,7 +181,9 @@ export function registerScenarioCommand(program: Command): void {
       await mkdir(scenariosDir, { recursive: true });
       await writeFile(filePath, buildScenarioTemplate(name), "utf-8");
 
-      outro(`Scenario scaffolded at .ux-audit/scenarios/${slug}.md — edit it, then run \`ux-audit run\`.`);
+      outro(
+        `Scenario scaffolded at .ux-audit/scenarios/${slug}.md — edit it, then run \`ux-audit run\`.`,
+      );
     });
 
   scenario
@@ -191,7 +204,9 @@ export function registerScenarioCommand(program: Command): void {
       }
 
       if (scenarios.length === 0) {
-        console.log("No scenarios found. Run `ux-audit scenario add` to create one.");
+        console.log(
+          "No scenarios found. Run `ux-audit scenario add` to create one.",
+        );
         return;
       }
 

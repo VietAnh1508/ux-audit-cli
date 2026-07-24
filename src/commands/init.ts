@@ -1,7 +1,7 @@
 import { mkdir, stat, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Command } from "commander";
-import { cancel, confirm, intro, isCancel, note, outro, text } from "@clack/prompts";
+import { confirm, intro, note, outro, text } from "@clack/prompts";
 import { AppConfigSchema, AppOverviewSchema, GuidelineSchema } from "../config/schema.js";
 import {
   resolveAppOverviewPath,
@@ -12,14 +12,7 @@ import {
 } from "../config/paths.js";
 import type { AppOverview } from "../types/index.js";
 import { APP_OVERVIEW_FIELDS } from "./app-overview-fields.js";
-
-function exitOnCancel<T>(value: T | symbol): T {
-  if (isCancel(value)) {
-    cancel("init cancelled.");
-    process.exit(1);
-  }
-  return value;
-}
+import { exitOnCancel } from "../utils/prompts.js";
 
 async function fileExists(filePath: string): Promise<boolean> {
   try {
@@ -66,6 +59,7 @@ export function registerInitCommand(program: Command): void {
             message: ".ux-audit/ is already set up here. Reset app.json and config.json?",
             initialValue: false,
           }),
+          "init cancelled.",
         );
         if (!overwrite) {
           outro("Nothing changed. Use `ux-audit app edit` to update the app overview.");
@@ -87,6 +81,7 @@ export function registerInitCommand(program: Command): void {
             message: field.message,
             validate: (input) => field.validate(input ?? ""),
           }),
+          "init cancelled.",
         );
         answers[field.key] = value.trim();
       }

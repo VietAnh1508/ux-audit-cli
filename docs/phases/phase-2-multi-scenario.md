@@ -158,10 +158,32 @@ instead — same reasoning as Phase 1: mocking a subprocess would test the mock.
 
 ## Testing evidence
 
-_Not started._
+- Section 1 (scenario selection) manually exercised against a scratch `.ux-audit/` with
+  3 scenarios: `--scenario a,b,c` with an unknown slug mixed in (errors listing exactly
+  the unknown ones), `--scenario` containing only commas/whitespace (errors, doesn't
+  silently no-op), `--scenario a,b` end-to-end (both run sequentially, each writes its
+  own `<slug>-findings.json`), no-`--scenario` with exactly one scenario on disk (runs
+  immediately, no prompt), no-`--scenario` with >1 on disk both cancelling the picker
+  and submitting an empty selection (both exit 1). `pnpm typecheck` and `pnpm test`
+  clean.
 
 ## Gotchas / drift from plan
 
+- **Picker option labels can't reuse `formatScenarioSummary` as-is.** That helper
+  returns a two-line string (`slug\n  details`) meant for `scenario list`'s plain
+  console output. Passing it straight to `@clack/prompts` `multiselect` as an option
+  `label` embeds a raw newline inside the box-drawing UI and corrupts the rendered
+  list. Fixed by splitting `formatScenarioSummary` into `formatScenarioDetail`
+  (single-line details, no slug) + `formatScenarioSummary` (composes the two-line
+  version for `scenario list`), and having the `run` picker use
+  `{label: scenario.slug, hint: formatScenarioDetail(scenario)}` instead — `hint`
+  renders inline next to the focused option, which is what `multiselect` actually
+  supports for secondary detail text.
+- **Section 1 landed ahead of concurrency (section 2).** `run.ts` currently loops over
+  selected scenarios sequentially and re-resolves the backend per scenario — section 2
+  (`p-limit` pool, resolve backend once) will replace that loop, not add alongside it.
+  Selecting N scenarios today produces N independent findings files and no combined
+  report — synthesis (sections 3-6) isn't wired up yet.
 - **Retroactively extends Phase 1's `ScenarioFindingsSchema`** (adds `screens`) and
   `claude-code.ts`'s `buildPrompt()` (asks the agent to record screen notes as
   structured data, not just prose) — discovered while scoping this phase, not a Phase 1
