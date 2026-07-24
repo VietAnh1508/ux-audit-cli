@@ -1,14 +1,14 @@
-import { mkdir, writeFile, stat } from "node:fs/promises";
+import { mkdir, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Command } from "commander";
-import { cancel, confirm, intro, isCancel, outro, text } from "@clack/prompts";
+import { cancel, confirm, intro, isCancel, multiselect, outro, text } from "@clack/prompts";
 import { resolveScenariosDir } from "../config/paths.js";
 import { loadConfig, loadScenarios, ConfigLoadError } from "../config/loader.js";
 import type { ScenarioConfig } from "../types/index.js";
 
-function exitOnCancel<T>(value: T | symbol): T {
+function exitOnCancel<T>(value: T | symbol, message = "Cancelled."): T {
   if (isCancel(value)) {
-    cancel("scenario add cancelled.");
+    cancel(message);
     process.exit(1);
   }
   return value;
@@ -21,6 +21,24 @@ async function fileExists(filePath: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function isEnoent(error: unknown): boolean {
+  return error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT";
+}
+
+async function listScenarioSlugs(scenariosDir: string): Promise<string[]> {
+  let entries: string[];
+  try {
+    entries = await readdir(scenariosDir);
+  } catch (err) {
+    if (isEnoent(err)) return [];
+    throw err;
+  }
+  return entries
+    .filter((name) => name.toLowerCase().endsWith(".md"))
+    .map((name) => name.replace(/\.md$/i, ""))
+    .sort();
 }
 
 function formatScenarioSummary(scenario: ScenarioConfig): string {
@@ -127,6 +145,7 @@ export function registerScenarioCommand(program: Command): void {
             message: 'Scenario name (e.g. "New User Onboarding")',
             validate: (input) => (slugify(input ?? "") ? undefined : "Required"),
           }),
+          "scenario add cancelled.",
         );
       }
 
@@ -140,6 +159,7 @@ export function registerScenarioCommand(program: Command): void {
             message: `.ux-audit/scenarios/${slug}.md already exists. Overwrite?`,
             initialValue: false,
           }),
+          "scenario add cancelled.",
         );
         if (!overwrite) {
           outro("Nothing changed.");
@@ -179,9 +199,64 @@ export function registerScenarioCommand(program: Command): void {
     });
 
   scenario
-    .command("remove <slug>")
+    .command("remove [slug]")
     .description("Remove a stored scenario")
-    .action(async (_slug: string) => {
-      throw new Error("not implemented — see docs/IMPLEMENTATION_PLAN.md Phase 1");
+    .action(async (slugArg?: string) => {
+      const cwd = process.cwd();
+      const scenariosDir = resolveScenariosDir(cwd);
+      const slugs = await listScenarioSlugs(scenariosDir);
+
+      if (slugs.length === 0) {
+        console.log("No scenarios found.");
+        return;
+      }
+
+      intro("ux-audit scenario remove");
+
+      let slugsToRemove: string[];
+      if (slugArg) {
+        if (!slugs.includes(slugArg)) {
+          cancel(`No scenario found matching "${slugArg}".`);
+          process.exit(1);
+        }
+        slugsToRemove = [slugArg];
+      } else {
+        const selected = exitOnCancel(
+          await multiselect({
+            message: "Select scenarios to remove",
+            options: slugs.map((slug) => ({ value: slug, label: slug })),
+            required: false,
+          }),
+          "scenario remove cancelled.",
+        );
+        if (selected.length === 0) {
+          outro("Nothing selected.");
+          return;
+        }
+        slugsToRemove = selected;
+      }
+
+      const confirmMessage =
+        slugsToRemove.length === 1
+          ? `Remove .ux-audit/scenarios/${slugsToRemove[0]}.md?`
+          : `Remove ${slugsToRemove.length} scenarios: ${slugsToRemove.join(", ")}?`;
+      const confirmed = exitOnCancel(
+        await confirm({ message: confirmMessage, initialValue: false }),
+        "scenario remove cancelled.",
+      );
+      if (!confirmed) {
+        outro("Nothing changed.");
+        return;
+      }
+
+      for (const slug of slugsToRemove) {
+        await unlink(path.join(scenariosDir, `${slug}.md`));
+      }
+
+      outro(
+        slugsToRemove.length === 1
+          ? `Removed .ux-audit/scenarios/${slugsToRemove[0]}.md`
+          : `Removed ${slugsToRemove.length} scenarios.`,
+      );
     });
 }
