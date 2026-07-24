@@ -192,6 +192,11 @@ wired up.
 
 ## Gotchas / drift from plan
 
+- **`ScenarioFindingsSchema` and `buildPrompt()`'s findings-JSON instructions were
+  extended in Phase 2** to add a `screens` array (structured screen-by-screen notes),
+  needed once Phase 2's report templates required a real screen-notes section to render
+  — not something Phase 1 itself needed. See
+  [`phase-2-multi-scenario.md`](./phase-2-multi-scenario.md) Plan, section 3.
 - **`--caps` doesn't do what the original plan assumed.** `UX_AUDIT_CLI_PLAN.md`
   described `@playwright/mcp --caps` as how we'd scope out `browser_evaluate`/
   `browser_run_code_unsafe` (RCE prevention). In the installed version (0.0.78),

@@ -3,8 +3,8 @@ dist/
 *.log
 .DS_Store
 
-# scaffolded projects created while testing the CLI against a sample app
-.ux-audit/credentials.local.json
+# scaffolded project state created by running the CLI locally
+.ux-audit/
 
 # scratch dir for manual command testing (see CLAUDE.md)
 /tmp/

@@ -90,6 +90,20 @@ close out a task.
   - [x] `src/commands/run.ts` (single scenario, no picker)
 - [ ] **Phase 2 — Multi-scenario + picker + report synthesis + concurrency** — not started.
       → [`phases/phase-2-multi-scenario.md`](./phases/phase-2-multi-scenario.md)
+  - [ ] `src/config/schema.ts` / `types/index.ts` — `ScreenNoteSchema`,
+        `ScenarioFindingsSchema.screens` (retroactive Phase 1 extension)
+  - [ ] `src/backends/claude-code.ts` — `buildPrompt()` screen-notes instructions,
+        `synthesizeReport()` implementation + signature change
+  - [ ] `src/engine/findings-handoff.ts` — generalize read/validate/retry for reuse by
+        report synthesis
+  - [ ] `src/report/schema.ts` — `CrossScenarioFindingSchema`, extended `ReportSchema`
+        (executive summary, quick wins, feature suggestions, screen notes)
+  - [ ] `src/report/synthesize.ts` (`synthesizeReport`)
+  - [ ] `src/report/render.ts` (`renderMarkdown`, single + multi mode) — unit tested
+  - [ ] `src/engine/run-scenario.ts` — accept a pre-resolved `backend` param
+  - [ ] `src/commands/run.ts` — `--scenario` parsing, multi-select picker, `p-limit`
+        concurrency pool, output wiring
+  - [ ] `package.json` — add `p-limit` dependency
 - [ ] **Phase 3 — Guideline presets + custom rules** — not started.
       → [`phases/phase-3-guideline-presets.md`](./phases/phase-3-guideline-presets.md)
 - [ ] **Phase 4 — Additional LLM backends** — not started.
