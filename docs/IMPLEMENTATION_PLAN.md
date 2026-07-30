@@ -7,8 +7,9 @@ scenario is on disk), manually exercised against a scratch `.ux-audit/` — see
 Report synthesis is also done — `report/schema.ts` extensions, generalized
 `findings-handoff.ts`, `ClaudeCodeBackend.synthesizeReport()`, and `report/synthesize.ts`
 — smoke-tested end-to-end against the real `claude` CLI (two scenarios sharing a
-cross-scenario finding, correctly deduped). Next: `report/render.ts`, then concurrency
-(`p-limit` pool, resolve backend once), then wiring combined output in `run.ts`.**
+cross-scenario finding, correctly deduped). `report/render.ts` (`renderMarkdown`, single +
+multi mode) is also done, unit tested. Next: concurrency (`p-limit` pool, resolve backend
+once), then wiring combined output in `run.ts`.**
 (update this line in the same commit as whatever task you just closed out)
 
 This is the execution checklist. For _why_ each decision was made, see
@@ -107,7 +108,7 @@ close out a task.
   - [x] `src/report/schema.ts` — `CrossScenarioFindingSchema`, extended `ReportSchema`
         (executive summary, quick wins, feature suggestions, screen notes)
   - [x] `src/report/synthesize.ts` (`synthesizeReport`)
-  - [ ] `src/report/render.ts` (`renderMarkdown`, single + multi mode) — unit tested
+  - [x] `src/report/render.ts` (`renderMarkdown`, single + multi mode) — unit tested
   - [ ] `src/engine/run-scenario.ts` — accept a pre-resolved `backend` param
   - [ ] `src/commands/run.ts` — `p-limit` concurrency pool, combined report output wiring
   - [ ] `package.json` — add `p-limit` dependency

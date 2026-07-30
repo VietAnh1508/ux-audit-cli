@@ -193,6 +193,17 @@ test`.
   entirely while keeping `--strict-mcp-config` + `--setting-sources ""` yields
   `"mcp_servers":[]` in the subprocess's init event — no global MCP server leakage into
   the synthesis call. `pnpm typecheck` and `pnpm test` clean throughout.
+- Section 6 (`report/render.ts`) unit tested per the strategy above: `src/report/render.test.ts`
+  covers single mode (title/executive summary, severity grouping with only non-empty
+  severities rendered and high-before-low ordering, screen notes with and without optional
+  `state`, a non-`OK` section's status/notes surfaced as a blockquote, and empty
+  `screens`/`quickWins`/`featureSuggestions` all omitting their section headers entirely —
+  no literal `[]` or dangling headings), and multi mode (scenario count + slug list in the
+  title, cross-scenario findings rendering `appearsIn`, one `## Scenario:` subsection per
+  section including a status note for the `BLOCKED` one, "no cross-scenario issues" fallback
+  text when that list is empty, and `Combined quick wins`/`Combined feature suggestions`
+  headers — the latter omitted when empty). `pnpm typecheck` and `pnpm test` clean (28 tests
+  passing across the two test files in the repo).
 
 ## Gotchas / drift from plan
 
@@ -251,3 +262,10 @@ test`.
   screen-by-screen report section does). See
   [`phase-1-single-scenario.md`](./phase-1-single-scenario.md) Gotchas for the
   cross-reference.
+- **`render.ts` omits the templates' "_Audited on {date}._" line.** `ReportSchema` (section
+  3 above) has no date field — section 6's plan for `render.ts` also never mentions one —
+  so rendering a date would mean either inventing a schema field beyond what was planned or
+  calling `new Date()` inside a function this phase's testing strategy specifies as unit
+  tested, which would make output non-deterministic across runs. Left out rather than
+  invented; `run.ts` (section 7, not yet wired up) is the more natural place to stamp a
+  generation timestamp onto the written file if that's wanted later.
