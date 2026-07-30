@@ -58,3 +58,13 @@ Anthropic API directly.
   ```
   To edit a prefilled value: `send "\033\[F"` (Home) then repeat `send "\177"`
   (Backspace) enough times to clear it before sending the replacement text.
+
+## Reusable test fixtures & manual scripts (`test/`)
+
+Unlike `tmp/` (gitignored, throwaway), `test/` is committed — use it for fixtures and
+manual scripts worth keeping so a future session doesn't rewrite them from scratch.
+`test/fixtures/` holds sample data (e.g. `scenario-findings/*.json`); `test/manual/`
+holds scripts that exercise a real subprocess/LLM call end-to-end and print the result
+(run directly with `tsx`, not via `pnpm test` — see `docs/phases/phase-2-multi-scenario.md`
+for the `synthesize.ts` example). Reach for this when a change needs re-verifying against
+a real backend call more than once, not for one-off manual checks.

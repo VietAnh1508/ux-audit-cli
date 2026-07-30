@@ -4,11 +4,14 @@
 slugs with unknown-slug validation, `@clack/prompts` multi-select picker when >1
 scenario is on disk), manually exercised against a scratch `.ux-audit/` — see
 [`phases/phase-2-multi-scenario.md`](./phases/phase-2-multi-scenario.md#testing-evidence).
-Next: concurrency (`p-limit` pool, resolve backend once), then report synthesis
-(schema extensions, `synthesize.ts`, `render.ts`), then wiring combined output.**
+Report synthesis is also done — `report/schema.ts` extensions, generalized
+`findings-handoff.ts`, `ClaudeCodeBackend.synthesizeReport()`, and `report/synthesize.ts`
+— smoke-tested end-to-end against the real `claude` CLI (two scenarios sharing a
+cross-scenario finding, correctly deduped). Next: `report/render.ts`, then concurrency
+(`p-limit` pool, resolve backend once), then wiring combined output in `run.ts`.**
 (update this line in the same commit as whatever task you just closed out)
 
-This is the execution checklist. For *why* each decision was made, see
+This is the execution checklist. For _why_ each decision was made, see
 [`UX_AUDIT_CLI_PLAN.md`](./UX_AUDIT_CLI_PLAN.md) — that file is the source of truth for
 architecture and rationale. Each phase's file-level task list, testing evidence, and
 any drift/gotchas discovered while implementing it live in `docs/phases/phase-N-*.md` —
@@ -95,15 +98,15 @@ close out a task.
   - [x] `src/commands/run.ts` — `--scenario` parsing + multi-select picker (comma-separated
         slugs with unknown-slug validation, checkbox picker when >1 scenario is on disk,
         cancelled/empty selection both exit 1)
-  - [ ] `src/config/schema.ts` / `types/index.ts` — `ScreenNoteSchema`,
+  - [x] `src/config/schema.ts` / `types/index.ts` — `ScreenNoteSchema`,
         `ScenarioFindingsSchema.screens` (retroactive Phase 1 extension)
-  - [ ] `src/backends/claude-code.ts` — `buildPrompt()` screen-notes instructions,
+  - [x] `src/backends/claude-code.ts` — `buildPrompt()` screen-notes instructions,
         `synthesizeReport()` implementation + signature change
-  - [ ] `src/engine/findings-handoff.ts` — generalize read/validate/retry for reuse by
+  - [x] `src/engine/findings-handoff.ts` — generalize read/validate/retry for reuse by
         report synthesis
-  - [ ] `src/report/schema.ts` — `CrossScenarioFindingSchema`, extended `ReportSchema`
+  - [x] `src/report/schema.ts` — `CrossScenarioFindingSchema`, extended `ReportSchema`
         (executive summary, quick wins, feature suggestions, screen notes)
-  - [ ] `src/report/synthesize.ts` (`synthesizeReport`)
+  - [x] `src/report/synthesize.ts` (`synthesizeReport`)
   - [ ] `src/report/render.ts` (`renderMarkdown`, single + multi mode) — unit tested
   - [ ] `src/engine/run-scenario.ts` — accept a pre-resolved `backend` param
   - [ ] `src/commands/run.ts` — `p-limit` concurrency pool, combined report output wiring

@@ -1,5 +1,4 @@
-import type { LlmBackend, LlmBackendRunOptions } from "./types.js";
-import type { AppOverview } from "../types/index.js";
+import type { LlmBackend, LlmBackendRunOptions, SynthesizeReportOptions } from "./types.js";
 
 // Opt-in backend for CI/headless environments with no pre-authenticated CLI — see
 // docs/IMPLEMENTATION_PLAN.md Phase 4. Uses @anthropic-ai/sdk's `toolRunner` + `betaZodTool`
@@ -16,7 +15,7 @@ export class ApiBackend implements LlmBackend {
     throw new Error("not implemented — see docs/IMPLEMENTATION_PLAN.md Phase 4");
   }
 
-  async synthesizeReport(_findingsPaths: string[], _appOverview: AppOverview): Promise<unknown> {
+  async synthesizeReport(_options: SynthesizeReportOptions): Promise<void> {
     throw new Error("not implemented — see docs/IMPLEMENTATION_PLAN.md Phase 4");
   }
 }

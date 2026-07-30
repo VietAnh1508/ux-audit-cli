@@ -1,0 +1,23 @@
+{
+  "scenarioSlug": "checkout",
+  "status": "OK",
+  "findings": [
+    {
+      "element": "Submit button",
+      "dimension": "CTA clarity",
+      "severity": "medium",
+      "observation": "The submit button on checkout is also low-contrast grey, hard to notice.",
+      "suggestion": "Use the same high-contrast brand color as other primary CTAs."
+    },
+    {
+      "element": "Cart total",
+      "dimension": "Visual hierarchy",
+      "severity": "high",
+      "observation": "Cart total is the same font size as line items, easy to miss the final price.",
+      "suggestion": "Make the total larger and bolder."
+    }
+  ],
+  "screens": [
+    { "name": "Checkout", "state": "initial load", "observations": "Standard cart layout." }
+  ]
+}

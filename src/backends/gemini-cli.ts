@@ -1,5 +1,4 @@
-import type { LlmBackend, LlmBackendRunOptions } from "./types.js";
-import type { AppOverview } from "../types/index.js";
+import type { LlmBackend, LlmBackendRunOptions, SynthesizeReportOptions } from "./types.js";
 
 // Phase 4 backend — see docs/IMPLEMENTATION_PLAN.md Phase 4.
 // Spawns `gemini --non-interactive --yolo --output-format json` with an mcpServers
@@ -16,7 +15,7 @@ export class GeminiCliBackend implements LlmBackend {
     throw new Error("not implemented — see docs/IMPLEMENTATION_PLAN.md Phase 4");
   }
 
-  async synthesizeReport(_findingsPaths: string[], _appOverview: AppOverview): Promise<unknown> {
+  async synthesizeReport(_options: SynthesizeReportOptions): Promise<void> {
     throw new Error("not implemented — see docs/IMPLEMENTATION_PLAN.md Phase 4");
   }
 }

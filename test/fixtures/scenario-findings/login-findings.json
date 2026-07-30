@@ -1,0 +1,24 @@
+{
+  "scenarioSlug": "login",
+  "status": "OK",
+  "findings": [
+    {
+      "element": "Sign in button",
+      "dimension": "CTA clarity",
+      "severity": "medium",
+      "observation": "The sign in button is grey and blends into the background, easy to miss.",
+      "suggestion": "Use a high-contrast brand color for the primary CTA."
+    },
+    {
+      "element": "Password field",
+      "dimension": "Feedback",
+      "severity": "low",
+      "observation": "No visual feedback when caps lock is on.",
+      "suggestion": "Add a caps-lock warning indicator."
+    }
+  ],
+  "screens": [
+    { "name": "Login", "state": "initial load", "observations": "Clean layout, logo top left." },
+    { "name": "Login", "state": "after submit", "observations": "Redirects to dashboard with no loading spinner." }
+  ]
+}

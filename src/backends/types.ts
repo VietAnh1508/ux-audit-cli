@@ -1,4 +1,4 @@
-import type { AppOverview, Credentials, ScenarioConfig } from "../types/index.js";
+import type { AppOverview, Credentials, ScenarioConfig, ScenarioFindings } from "../types/index.js";
 
 export interface LlmBackendRunOptions {
   scenario: ScenarioConfig;
@@ -18,6 +18,23 @@ export interface LlmBackendRunOptions {
   previousValidationError?: string;
 }
 
+export interface SynthesizeReportOptions {
+  /**
+   * Already read and schema-validated by report/synthesize.ts (see
+   * src/engine/findings-handoff.ts's tryReadJson) — backends embed this directly rather
+   * than re-reading the findings files themselves.
+   */
+  scenarioFindings: ScenarioFindings[];
+  appOverview: AppOverview;
+  outputPath: string;
+  /**
+   * Set by report/synthesize.ts's read-and-validate retry when the previous attempt's
+   * output JSON failed schema validation — same retry contract as
+   * LlmBackendRunOptions.previousValidationError.
+   */
+  previousValidationError?: string;
+}
+
 export interface LlmBackend {
   readonly name: string;
 
@@ -28,5 +45,5 @@ export interface LlmBackend {
   runScenario(options: LlmBackendRunOptions): Promise<void>;
 
   /** Spawn the backend (no browser tools) to synthesize the cross-scenario report. */
-  synthesizeReport(findingsPaths: string[], appOverview: AppOverview): Promise<unknown>;
+  synthesizeReport(options: SynthesizeReportOptions): Promise<void>;
 }

@@ -1,0 +1,7 @@
+{
+  "scenarioSlug": "checkout-mobile",
+  "status": "BLOCKED",
+  "findings": [],
+  "screens": [],
+  "notes": "Expected a fresh, unauthenticated session but the app landed on an already-authenticated dashboard — could not test the checkout flow from a cold start."
+}
