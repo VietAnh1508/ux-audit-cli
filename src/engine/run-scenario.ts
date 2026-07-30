@@ -53,7 +53,7 @@ function isSameOrigin(url: string, expectedUrl: string): boolean {
 }
 
 function errorFindings(slug: string, notes: string): ScenarioFindings {
-  return { scenarioSlug: slug, status: "ERROR", findings: [], notes };
+  return { scenarioSlug: slug, status: "ERROR", findings: [], screens: [], notes };
 }
 
 // Per-scenario execution engine — see docs/UX_AUDIT_CLI_PLAN.md "Execution engine, per

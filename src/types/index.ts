@@ -41,10 +41,17 @@ export interface Finding {
   suggestion: string;
 }
 
+export interface ScreenNote {
+  name: string;
+  state?: string;
+  observations: string;
+}
+
 export interface ScenarioFindings {
   scenarioSlug: string;
   status: FindingStatus;
   findings: Finding[];
+  screens: ScreenNote[];
   notes?: string;
 }
 

@@ -54,9 +54,16 @@ export const FindingSchema = z.object({
   suggestion: z.string(),
 });
 
+export const ScreenNoteSchema = z.object({
+  name: z.string(),
+  state: z.string().optional(),
+  observations: z.string(),
+});
+
 export const ScenarioFindingsSchema = z.object({
   scenarioSlug: z.string(),
   status: z.enum(["OK", "ERROR", "BLOCKED"]),
   findings: z.array(FindingSchema),
+  screens: z.array(ScreenNoteSchema).default([]),
   notes: z.string().optional(),
 });

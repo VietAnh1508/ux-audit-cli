@@ -51,6 +51,7 @@ export async function readAndValidateFindings(
     scenarioSlug: runOptions.scenario.slug,
     status: "ERROR",
     findings: [],
+    screens: [],
     notes: `Findings JSON still failed validation after one retry:\n${secondAttempt.error}`,
   };
 }

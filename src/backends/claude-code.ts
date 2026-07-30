@@ -161,7 +161,7 @@ ${
     : ""
 }
 
-A browser is open and controllable through the connected browser tools — navigate to the App URL below to begin. Accessibility scanning (axe-core) runs separately outside this session — focus on subjective UX judgment: visual hierarchy, CTA clarity, copy quality, empty/loading states, feedback after actions, information density, friction, and anything a first-time user would find confusing. Take a screenshot at each key state (initial load, after each interaction, error states, confirmation states) and note the screen name/state as you go. Call the screenshot tool with NO "filename" argument — omitting it returns the image to you directly so you can see it right away; passing a filename saves it to disk instead and you will not be able to view it.
+A browser is open and controllable through the connected browser tools — navigate to the App URL below to begin. Accessibility scanning (axe-core) runs separately outside this session — focus on subjective UX judgment: visual hierarchy, CTA clarity, copy quality, empty/loading states, feedback after actions, information density, friction, and anything a first-time user would find confusing. Take a screenshot at each key state (initial load, after each interaction, error states, confirmation states) and record it as a screen note (name, state, observations — see "screens" in the JSON shape below) as you go. Call the screenshot tool with NO "filename" argument — omitting it returns the image to you directly so you can see it right away; passing a filename saves it to disk instead and you will not be able to view it.
 
 Do not:
 - trigger alert()/confirm()/prompt() dialogs — they block the browser
@@ -206,6 +206,13 @@ Write ONLY the JSON object, matching this shape exactly:
       "suggestion": "a concrete fix"
     }
   ],
+  "screens": [
+    {
+      "name": "e.g. 'Checkout' or 'Login'",
+      "state": "e.g. 'initial load', 'after submit', 'error'",
+      "observations": "what you saw at this state, in plain language"
+    }
+  ],
   "notes": "optional free-text notes, omit the field entirely if you have none"
 }
 \`\`\`
@@ -215,6 +222,7 @@ Write ONLY the JSON object, matching this shape exactly:
 - Skip dimensions that are fine; do not pad with neutral observations.
 - Deduplicate: if an issue appears on multiple screens, list it once.
 - Prioritize issues on the critical path over edge cases.
+- Add one "screens" entry per key state you screenshotted, in the order you visited them — this is how the report gets its screen-by-screen notes, so it must reflect every state, not just ones with findings.
 `;
 }
 
