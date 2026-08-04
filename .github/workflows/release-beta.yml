@@ -1,0 +1,59 @@
+name: Release beta build
+
+# Cutting a release is a local decision (bump version + tag), never automatic on every
+# push to main. Pushing a matching tag is what triggers this — see
+# docs/phases/phase-5-polish.md "Teammate test build" for the exact local commands.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Fails fast if someone tags without bumping package.json first — the tag name
+      # (minus the leading "v") must equal the current version exactly.
+      - name: Verify tag matches package.json version
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION" >&2
+            exit 1
+          fi
+
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+      - name: Pack tarball under a fixed asset name
+        run: |
+          pnpm pack
+          mv ux-audit-cli-*.tgz ux-audit-cli.tgz
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" ux-audit-cli.tgz \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Beta test build. Install/update with:
+
+          \`\`\`
+          npm install -g https://github.com/${{ github.repository }}/releases/latest/download/ux-audit-cli.tgz
+          \`\`\`"

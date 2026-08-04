@@ -35,10 +35,7 @@ _Not started._
     tarball installs), and a version bump to `0.1.0-beta.1` (semver prerelease, bump the
     trailing number each time a new build goes out) so re-shared builds are
     identifiable.
-  - Distribution mechanism is a **pre-built tarball**, not a git-URL install. Run
-    `pnpm pack` to produce `ux-audit-cli-<version>.tgz`, then either hand the file
-    directly or upload it as a GitHub Release asset on the (public) repo so the teammate
-    can `npm install -g <release-asset-url>` without a manual file transfer.
+  - Distribution mechanism is a **pre-built tarball**, not a git-URL install.
   - **`npm install -g github:VietAnh1508/ux-audit-cli` does not work — don't re-attempt
     this without addressing the root cause.** Verified against npm 11.18.0: npm's
     git-dependency install flow places the root package and immediately runs its
@@ -46,6 +43,29 @@ _Not started._
     via `.npm/_logs`), so `prepare: "tsc -p ."` fails with `sh: tsc: command not found`
     (exit 127). A tarball install never runs `prepare` at all (npm assumes a packed
     tarball is already built), which is why that path works instead.
+  - **Cutting a release is automated via `.github/workflows/release-beta.yml`,
+    triggered by pushing a `v*` tag** (never on every push to `main` — the version bump
+    is still a deliberate local step):
+    ```
+    npm version prerelease --preid=beta --no-git-tag-version
+    git commit -am "chore: release v$(node -p "require('./package.json').version")"
+    git tag "v$(node -p "require('./package.json').version")"
+    git push --follow-tags
+    ```
+    The workflow checks the pushed tag matches `package.json`'s version (fails fast if
+    you forgot to bump), runs `typecheck` + `test`, builds, packs, and publishes a
+    GitHub Release with the tarball attached under a **fixed asset name**
+    (`ux-audit-cli.tgz`, not npm's default `ux-audit-cli-<version>.tgz`). That fixed name
+    is what makes the teammate's install command permanent:
+    ```
+    npm install -g https://github.com/VietAnh1508/ux-audit-cli/releases/latest/download/ux-audit-cli.tgz
+    ```
+    Same command re-installs to pick up every future beta; `ux-audit --version` shows
+    which one actually landed. One deliberate trade-off: GitHub's `/releases/latest`
+    alias only resolves to releases *not* flagged `prerelease` in GitHub's own release
+    metadata (separate from the `-beta.N` semver string) — the workflow does not pass
+    `--prerelease` to `gh release create`, on purpose, since every release cut right now
+    is "the current thing to test." Revisit if this ever needs a separate stable channel.
   - Teammate prerequisites (not yet in a README since one doesn't exist): Node ≥ 20, an
     already-authenticated `claude` CLI on PATH (see the ENOENT/not-logged-in handling in
     `src/backends/claude-code.ts`), and `npx playwright install chromium` run once after

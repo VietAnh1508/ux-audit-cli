@@ -14,6 +14,20 @@ scoped for Phase 5, once the command surface stops changing — see
 - [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md) — phased execution checklist; check this for current status.
 - [`CLAUDE.md`](./CLAUDE.md) — conventions for working in this repo.
 
+## Beta builds
+
+For teammates trying the CLI before the real release: this always installs the latest
+beta build (re-run it to pick up new ones):
+
+```
+npm install -g https://github.com/VietAnh1508/ux-audit-cli/releases/latest/download/ux-audit-cli.tgz
+```
+
+Requires Node ≥ 20, an already-authenticated `claude` CLI on PATH, and
+`npx playwright install chromium` run once. `ux-audit --version` shows which build
+landed. See [`docs/phases/phase-5-polish.md`](./docs/phases/phase-5-polish.md) for how
+releases are cut and what's actually testable right now.
+
 ## Local setup
 
 ```
