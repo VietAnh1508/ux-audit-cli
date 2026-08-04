@@ -108,7 +108,8 @@ export async function runScenario(
       return llmFindings;
     }
 
-    // Shared-live-page guard (see docs/phases/phase-1-single-scenario.md Gotchas) — the
+    // Shared-live-page guard (see docs/phases/phase-1-single-scenario/07-run-scenario-engine.md
+    // Gotchas) — the
     // invariant that our axe scan and the agent's MCP tool calls drive the same `page`
     // only holds because browser_tabs/browser_resize are excluded from the backend's
     // allowlist. If something still spawned a second page (e.g. an auth popup), this

@@ -1,7 +1,7 @@
 # Phase 4 — Additional LLM backends
 
-Status: **not started**. See [`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) for
-current overall status.
+**Status:** not started. See [`../../IMPLEMENTATION_PLAN.md`](../../IMPLEMENTATION_PLAN.md)
+for current overall status across all phases.
 
 ## Plan
 
@@ -25,12 +25,10 @@ installed.
 
 `backends/resolve.ts`'s preference-order logic is pure and deterministic → unit
 tested. Each new adapter is a subprocess/SDK integration → covered by this phase's
-manual **Acceptance** check per backend, not mocked.
+manual acceptance check per backend, not mocked.
 
-## Testing evidence
+## Tasks
 
-_Not started._
-
-## Gotchas / drift from plan
-
-_None yet._
+Not yet broken down into task files — this phase hasn't started. Create task files
+(same shape as Phase 0-2's) as work on each Plan bullet begins, rather than
+scaffolding empty "_Not started._" files ahead of time.

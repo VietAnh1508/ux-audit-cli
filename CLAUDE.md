@@ -12,14 +12,24 @@ Anthropic API directly.
   architecture decisions and their rationale, tech stack choices, config/data layout,
   execution engine, open risks. Read this before changing architecture, not just the
   code.
-- [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md) — the execution
-  checklist and current status at a glance. Check this before starting work to see
-  what phase is active and what's already done.
-- `docs/phases/phase-N-*.md` — one file per phase, each with that phase's task list,
-  testing strategy, testing evidence (what was actually run/verified, with commit
-  references), and gotchas/drift discovered while implementing it. Read the active
-  phase's doc before starting work on it; update it (not just the checklist above)
-  when you close out a task or hit something that deviates from the plan.
+- [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md) — the high-level
+  progress tracker: project overview, current active phase, links to each phase's
+  detail. Check this before starting work to see what phase is active and what's
+  already done.
+- `docs/phases/phase-N-<slug>/overview.md` — one per phase: that phase's task list +
+  status, shared testing strategy, acceptance criterion. Read the active phase's
+  overview before starting work on it.
+- `docs/phases/phase-N-<slug>/NN-<task-name>.md` — one file per task, with **Plan**
+  (original scope), **Implementation log**, **Testing evidence** (what was actually
+  run/verified, with commit references), and **Gotchas / drift from plan**. The task
+  file is authoritative — update it first when you close out a task or hit something
+  that deviates from the plan, then the phase's `overview.md` checklist, then
+  `IMPLEMENTATION_PLAN.md`.
+- [`docs/phases/CONVENTIONS.md`](./docs/phases/CONVENTIONS.md) — the actual rules
+  behind the two bullets above (section purposes, the N/A-vs-"Not started." rule,
+  status ownership, filenames, cross-referencing). Run `/document-task` after
+  finishing implementation work to apply these — don't hand-write phase docs from
+  memory of a previous session.
 - [`reference/ux-audit-skill/`](./reference/ux-audit-skill/) — the prior Claude-Code-native
   markdown skill this CLI supersedes. **Read-only reference**, not part of this tool's
   runtime — its scenario field set, report shape, and executor prompt patterns are the
@@ -73,8 +83,9 @@ git push origin main "v$(node -p "require('./package.json').version")"
   metadata (separate from the `-beta.N` semver string), so GitHub's `/releases/latest`
   alias keeps resolving — there's no separate stable channel yet.
 - `npm install -g github:VietAnh1508/ux-audit-cli` (git-URL install) is known broken —
-  don't re-attempt it. See `docs/phases/phase-5-polish.md` for the root cause and full
-  rationale.
+  don't re-attempt it. See
+  `docs/phases/phase-5-polish/00-teammate-test-build-and-release-automation.md` for the
+  root cause and full rationale.
 
 ## Testing interactive (`@clack/prompts`) commands manually
 
@@ -99,6 +110,7 @@ Unlike `tmp/` (gitignored, throwaway), `test/` is committed — use it for fixtu
 manual scripts worth keeping so a future session doesn't rewrite them from scratch.
 `test/fixtures/` holds sample data (e.g. `scenario-findings/*.json`); `test/manual/`
 holds scripts that exercise a real subprocess/LLM call end-to-end and print the result
-(run directly with `tsx`, not via `pnpm test` — see `docs/phases/phase-2-multi-scenario.md`
-for the `synthesize.ts` example). Reach for this when a change needs re-verifying against
-a real backend call more than once, not for one-off manual checks.
+(run directly with `tsx`, not via `pnpm test` — see
+`docs/phases/phase-2-multi-scenario/02-report-data-model-and-synthesis-backend.md` for
+the `synthesize.ts` example). Reach for this when a change needs re-verifying against a
+real backend call more than once, not for one-off manual checks.

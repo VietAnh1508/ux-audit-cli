@@ -20,8 +20,9 @@ npm install -g https://github.com/VietAnh1508/ux-audit-cli/releases/latest/downl
 
 Requires Node ≥ 20, an already-authenticated `claude` CLI on PATH, and
 `npx playwright install chromium` run once. `ux-audit --version` shows which build
-landed. See [`docs/phases/phase-5-polish.md`](./docs/phases/phase-5-polish.md) for how
-releases are cut and what's actually testable right now.
+landed. See
+[`docs/phases/phase-5-polish/00-teammate-test-build-and-release-automation.md`](./docs/phases/phase-5-polish/00-teammate-test-build-and-release-automation.md)
+for how releases are cut and what's actually testable right now.
 
 ## Basic usage
 

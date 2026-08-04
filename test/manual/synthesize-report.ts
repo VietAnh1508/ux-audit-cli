@@ -1,6 +1,7 @@
 // Manual smoke test for report/synthesize.ts + ClaudeCodeBackend.synthesizeReport — spawns a
-// real `claude -p` subprocess, so it's not run by `pnpm test` (see docs/phases/phase-2-multi-scenario.md
-// Testing strategy for why this class of check is manual, not mocked).
+// real `claude -p` subprocess, so it's not run by `pnpm test` (see
+// docs/phases/phase-2-multi-scenario/overview.md Testing strategy for why this class of check
+// is manual, not mocked).
 //
 // Run with: ./node_modules/.bin/tsx test/manual/synthesize-report.ts
 //

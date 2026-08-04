@@ -16,9 +16,9 @@ const PLAYWRIGHT_MCP_SERVER_NAME = "playwright";
 
 // UI-interaction and read-only inspection tools needed to walk a scenario and judge UX.
 // Deliberately narrower than "everything except the RCE tools" the phase doc originally
-// called for — confirmed via a live smoke test (docs/phases/phase-1-single-scenario.md)
-// that the full @playwright/mcp 0.0.78 tool set also includes tools this allowlist omits
-// on purpose:
+// called for — confirmed via a live smoke test
+// (docs/phases/phase-1-single-scenario/04-claude-code-backend-run-scenario.md) that the
+// full @playwright/mcp 0.0.78 tool set also includes tools this allowlist omits on purpose:
 //   - browser_evaluate, browser_run_code_unsafe: arbitrary code execution (RCE)
 //   - browser_tabs, browser_close, browser_resize: tab/browser lifecycle and viewport are
 //     owned by src/browser/launch.ts + the engine, not the agent — the agent touching these

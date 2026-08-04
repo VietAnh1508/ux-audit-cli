@@ -1,26 +1,35 @@
 # ux-audit CLI — Implementation Plan
 
-**Status: Phase 2, done — scenario selection (`--scenario` comma-separated slugs with
-unknown-slug validation, `@clack/prompts` multi-select picker when >1 scenario is on
-disk), report synthesis (`report/schema.ts` extensions, generalized
-`findings-handoff.ts`, `ClaudeCodeBackend.synthesizeReport()`, `report/synthesize.ts`),
-`report/render.ts` (`renderMarkdown`, single + multi mode, unit tested), concurrency
-(`p-limit` pool in `run.ts`, backend resolved once), and combined report output wiring
-(findings JSON always goes to `<outputDir>/<slug>-findings.json`, `--output` picks the
-combined report destination, all-non-OK runs skip synthesis) are all done — see
-[`phases/phase-2-multi-scenario.md`](./phases/phase-2-multi-scenario.md#testing-evidence).
-Packaging for a teammate test build was pulled forward from Phase 5 (tarball install,
-not git-URL; release cutting is now automated via
-`.github/workflows/release-beta.yml` on tag push — see
-[`phases/phase-5-polish.md`](./phases/phase-5-polish.md) Gotchas) so it could ship before
-the rest of Phase 2 was done.**
+**Active phase: Phase 3 — Guideline presets + custom rules (not started).** Phases 0-2
+are done — scaffolding/preflight, single-scenario execution end to end (Playwright CDP
++ `@playwright/mcp` + `claude -p`), and multi-scenario picker + report synthesis +
+concurrency. Phase 5's packaging half (tarball build, release automation) was pulled
+forward and is also done — see
+[`phases/phase-5-polish/overview.md`](./phases/phase-5-polish/overview.md). See the
+Phases table below for links to each phase's detail.
 (update this line in the same commit as whatever task you just closed out)
 
-This is the execution checklist. For _why_ each decision was made, see
+This is the high-level progress tracker: project overview, which phase is active, and
+links to each phase's detail. For _why_ each architecture decision was made, see
 [`UX_AUDIT_CLI_PLAN.md`](./UX_AUDIT_CLI_PLAN.md) — that file is the source of truth for
-architecture and rationale. Each phase's file-level task list, testing evidence, and
-any drift/gotchas discovered while implementing it live in `docs/phases/phase-N-*.md` —
-this file just tracks the checklist and current status at a glance.
+architecture and rationale.
+
+Each phase is broken into task files, one per unit of work, under
+`docs/phases/phase-N-<slug>/`:
+
+- `overview.md` — that phase's task list + status, shared testing strategy, and
+  acceptance criterion. Check this before starting work on a phase.
+- `NN-<task-name>.md` — one task, with **Plan** (the original scope, user-story style),
+  **Implementation log** (what was actually built), **Testing evidence** (what was
+  actually run/verified, with commit references), and **Gotchas / drift from plan**
+  (corrections and open risks discovered while implementing, so the next session
+  doesn't rediscover them).
+
+**Status ownership**: the task file is authoritative. Update it first when you close
+out a task or hit something that deviates from the plan; update the phase's
+`overview.md` checklist second; update this file's "Active phase" line and the Phases
+table third. Create a phase's task files only once work on that phase actually starts —
+don't scaffold empty ones ahead of time.
 
 `reference/ux-audit-skill/` is the old Claude-Code-native skill, kept **read-only** for
 behavioral parity — its scenario field set, report shape, and executor prompt patterns
@@ -62,10 +71,10 @@ src/
   types/index.ts              — shared TS types (mirrors config/schema.ts)
 ```
 
-Everything above already exists as a stub (throws `not implemented — see
-IMPLEMENTATION_PLAN.md Phase N`) and typechecks (`pnpm typecheck`). The phases below
-fill them in, in order — each phase should leave `pnpm typecheck` clean and the
-stated acceptance check passing before moving to the next.
+Everything above started out as a typed stub (throws `not implemented — see
+IMPLEMENTATION_PLAN.md Phase N`); modules not yet reached by an active phase (Phase 3+)
+still throw. The phases below fill them in, in order — each phase should leave `pnpm
+typecheck` clean and the stated acceptance check passing before moving to the next.
 
 ## Testing strategy
 
@@ -74,55 +83,23 @@ the very first Phase 0 task, before `config/loader.ts` or any other stub got rea
 logic — write the failing test first, then implement against it. Only
 `config/schema.ts`, `config/paths.ts`, `config/loader.ts`, `backends/resolve.ts`, and
 `report/render.ts` get unit tests — everything that needs a real browser or a real CLI
-subprocess is verified by each phase's manual **Acceptance** check instead, not mocked.
+subprocess is verified by each phase's manual acceptance check instead, not mocked.
 
 ## Phases
 
-Each phase's detail doc has four sections: **Plan** (the task list and acceptance
-criterion as scoped for that phase), **Testing strategy**, **Testing evidence** (what
-was actually run/verified, with commit references), and **Gotchas / drift from plan**
-(corrections and open risks discovered while implementing, so the next session doesn't
-rediscover them). Update the relevant phase doc, not just the checklist below, when you
-close out a task.
-
 - [x] **Phase 0 — Scaffolding & preflight** — done.
-      → [`phases/phase-0-scaffolding.md`](./phases/phase-0-scaffolding.md)
+      → [`phases/phase-0-scaffolding/overview.md`](./phases/phase-0-scaffolding/overview.md)
 - [x] **Phase 1 — Single scenario, fixed W3C guideline, no picker** — done.
-      → [`phases/phase-1-single-scenario.md`](./phases/phase-1-single-scenario.md)
-  - [x] Scenario file format + `loadScenarios`
-  - [x] `src/commands/scenario.ts` (`add`)
-  - [x] `src/browser/launch.ts`
-  - [x] `src/browser/mcp-bridge.ts`
-  - [x] `src/backends/claude-code.ts` (`runScenario`)
-  - [x] `src/engine/findings-handoff.ts`
-  - [x] `src/accessibility/axe-runner.ts`
-  - [x] `src/engine/run-scenario.ts`
-  - [x] `src/commands/run.ts` (single scenario, no picker)
+      → [`phases/phase-1-single-scenario/overview.md`](./phases/phase-1-single-scenario/overview.md)
 - [x] **Phase 2 — Multi-scenario + picker + report synthesis + concurrency** — done.
-      → [`phases/phase-2-multi-scenario.md`](./phases/phase-2-multi-scenario.md)
-  - [x] `src/commands/run.ts` — `--scenario` parsing + multi-select picker (comma-separated
-        slugs with unknown-slug validation, checkbox picker when >1 scenario is on disk,
-        cancelled/empty selection both exit 1)
-  - [x] `src/config/schema.ts` / `types/index.ts` — `ScreenNoteSchema`,
-        `ScenarioFindingsSchema.screens` (retroactive Phase 1 extension)
-  - [x] `src/backends/claude-code.ts` — `buildPrompt()` screen-notes instructions,
-        `synthesizeReport()` implementation + signature change
-  - [x] `src/engine/findings-handoff.ts` — generalize read/validate/retry for reuse by
-        report synthesis
-  - [x] `src/report/schema.ts` — `CrossScenarioFindingSchema`, extended `ReportSchema`
-        (executive summary, quick wins, feature suggestions, screen notes)
-  - [x] `src/report/synthesize.ts` (`synthesizeReport`)
-  - [x] `src/report/render.ts` (`renderMarkdown`, single + multi mode) — unit tested
-  - [x] `src/engine/run-scenario.ts` — accept a pre-resolved `backend` param
-  - [x] `package.json` — add `p-limit` dependency
-  - [x] `src/commands/run.ts` — `p-limit` concurrency pool
-  - [x] `src/commands/run.ts` — combined report output wiring
+      → [`phases/phase-2-multi-scenario/overview.md`](./phases/phase-2-multi-scenario/overview.md)
 - [ ] **Phase 3 — Guideline presets + custom rules** — not started.
-      → [`phases/phase-3-guideline-presets.md`](./phases/phase-3-guideline-presets.md)
+      → [`phases/phase-3-guideline-presets/overview.md`](./phases/phase-3-guideline-presets/overview.md)
 - [ ] **Phase 4 — Additional LLM backends** — not started.
-      → [`phases/phase-4-additional-backends.md`](./phases/phase-4-additional-backends.md)
-- [ ] **Phase 5 — Polish, distribution, docs** — not started.
-      → [`phases/phase-5-polish.md`](./phases/phase-5-polish.md)
+      → [`phases/phase-4-additional-backends/overview.md`](./phases/phase-4-additional-backends/overview.md)
+- [ ] **Phase 5 — Polish, distribution, docs** — partially done (packaging pulled
+      forward; README/error-audit/npm-publish still open).
+      → [`phases/phase-5-polish/overview.md`](./phases/phase-5-polish/overview.md)
 
 ## Open questions carried from the design plan
 

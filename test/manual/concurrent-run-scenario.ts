@@ -1,6 +1,6 @@
-// Manual acceptance check for docs/phases/phase-2-multi-scenario.md section 2's concurrency
-// pool — specifically the plan's "confirm this holds under real concurrent load" note about
-// launchBrowser()/mcp-bridge.ts's free-port + userDataDir isolation. Runs several real browsers
+// Manual acceptance check for docs/phases/phase-2-multi-scenario/01-concurrency-pool.md's
+// concurrency pool — specifically the plan's "confirm this holds under real concurrent load"
+// note about launchBrowser()/mcp-bridge.ts's free-port + userDataDir isolation. Runs several real browsers
 // + real mcp-bridge subprocesses through runScenario() concurrently via p-limit, but with a fake
 // LlmBackend (no real `claude -p` subprocess, no cost) that just writes a canned findings.json
 // immediately — isolating the concurrency plumbing from the LLM call.
