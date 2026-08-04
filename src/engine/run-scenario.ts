@@ -51,7 +51,7 @@ function isSameOrigin(url: string, expectedUrl: string): boolean {
   }
 }
 
-function errorFindings(slug: string, notes: string): ScenarioFindings {
+export function errorFindings(slug: string, notes: string): ScenarioFindings {
   return { scenarioSlug: slug, status: "ERROR", findings: [], screens: [], notes };
 }
 
@@ -67,7 +67,9 @@ export async function runScenario(
   backend: LlmBackend,
   options: RunScenarioOptions = {},
 ): Promise<ScenarioFindings> {
-  console.log("→ Checking app URL...");
+  const logPrefix = `[${scenario.slug}]`;
+
+  console.log(`${logPrefix} → Checking app URL...`);
   const url = scenario.scenarioUrl ?? appOverview.url;
   if (!(await checkUrlReachable(url))) {
     return errorFindings(scenario.slug, `${url} is not reachable.`);
@@ -75,13 +77,13 @@ export async function runScenario(
 
   const credentials = scenario.credentialsRef ? await loadCredentials(scenario.credentialsRef) : undefined;
 
-  console.log(`→ Opening browser (${scenario.viewport})...`);
+  console.log(`${logPrefix} → Opening browser (${scenario.viewport})...`);
   const { browser, page, cdpEndpoint } = await launchBrowser(scenario.viewport, { headless: !options.headed });
   const userDataDir = await mkdtemp(path.join(tmpdir(), `ux-audit-${scenario.slug}-`));
   let bridge: McpBridge | undefined;
 
   try {
-    console.log("→ Starting the accessibility bridge...");
+    console.log(`${logPrefix} → Starting the accessibility bridge...`);
     bridge = await startMcpBridge({ cdpEndpoint, userDataDir });
 
     const runOptions: LlmBackendRunOptions = {
@@ -93,7 +95,7 @@ export async function runScenario(
       findingsOutputPath: path.join(userDataDir, "findings.json"),
     };
 
-    console.log(`→ Auditing in progress — ${backend.name} is walking the scenario...`);
+    console.log(`${logPrefix} → Auditing in progress — ${backend.name} is walking the scenario...`);
     let llmFindings: ScenarioFindings;
     try {
       await backend.runScenario(runOptions);
@@ -119,11 +121,11 @@ export async function runScenario(
       );
     }
 
-    console.log("→ Running accessibility scan...");
+    console.log(`${logPrefix} → Running accessibility scan...`);
     const axeResults = await runAxeScan(page, W3C_AXE_TAGS);
     return { ...llmFindings, findings: [...llmFindings.findings, ...axeResultsToFindings(axeResults)] };
   } finally {
-    console.log("→ Cleaning up...");
+    console.log(`${logPrefix} → Cleaning up...`);
     if (bridge) await stopMcpBridge(bridge);
     await browser.close();
     await rm(userDataDir, { recursive: true, force: true });

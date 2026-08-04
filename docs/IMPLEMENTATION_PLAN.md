@@ -8,8 +8,12 @@ Report synthesis is also done — `report/schema.ts` extensions, generalized
 `findings-handoff.ts`, `ClaudeCodeBackend.synthesizeReport()`, and `report/synthesize.ts`
 — smoke-tested end-to-end against the real `claude` CLI (two scenarios sharing a
 cross-scenario finding, correctly deduped). `report/render.ts` (`renderMarkdown`, single +
-multi mode) is also done, unit tested. Next: concurrency (`p-limit` pool, resolve backend
-once), then wiring combined output in `run.ts`. Packaging for a teammate test build was
+multi mode) is also done, unit tested. Concurrency is also done — `p-limit` pool in
+`run.ts` (backend already resolved once), manually verified against real concurrent
+`launchBrowser()`/mcp-bridge port + userDataDir isolation — see
+[`phases/phase-2-multi-scenario.md`](./phases/phase-2-multi-scenario.md#testing-evidence).
+Next: wiring combined report output into `run.ts` (section 7). Packaging for a teammate
+test build was
 pulled forward from Phase 5 (tarball install, not git-URL; release cutting is now
 automated via `.github/workflows/release-beta.yml` on tag push — see
 [`phases/phase-5-polish.md`](./phases/phase-5-polish.md) Gotchas) so it could ship before
@@ -113,9 +117,10 @@ close out a task.
         (executive summary, quick wins, feature suggestions, screen notes)
   - [x] `src/report/synthesize.ts` (`synthesizeReport`)
   - [x] `src/report/render.ts` (`renderMarkdown`, single + multi mode) — unit tested
-  - [ ] `src/engine/run-scenario.ts` — accept a pre-resolved `backend` param
-  - [ ] `src/commands/run.ts` — `p-limit` concurrency pool, combined report output wiring
-  - [ ] `package.json` — add `p-limit` dependency
+  - [x] `src/engine/run-scenario.ts` — accept a pre-resolved `backend` param
+  - [x] `package.json` — add `p-limit` dependency
+  - [x] `src/commands/run.ts` — `p-limit` concurrency pool
+  - [ ] `src/commands/run.ts` — combined report output wiring
 - [ ] **Phase 3 — Guideline presets + custom rules** — not started.
       → [`phases/phase-3-guideline-presets.md`](./phases/phase-3-guideline-presets.md)
 - [ ] **Phase 4 — Additional LLM backends** — not started.

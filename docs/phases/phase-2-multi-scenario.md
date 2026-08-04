@@ -204,6 +204,15 @@ test`.
   text when that list is empty, and `Combined quick wins`/`Combined feature suggestions`
   headers — the latter omitted when empty). `pnpm typecheck` and `pnpm test` clean (28 tests
   passing across the two test files in the repo).
+- Section 2 (concurrency) manually verified via `test/manual/concurrent-run-scenario.ts`:
+  5 scenarios through the real `runScenario()` (real `launchBrowser()` + real
+  `startMcpBridge()` subprocesses, fake `LlmBackend` so no LLM cost) at `--concurrency 2`.
+  All 5 completed with no port or `userDataDir` collisions and the active-scenario counter
+  peaked at exactly 2, confirming the plan's "no new isolation work needed" prediction
+  under real concurrent load. Also verified the `--concurrency`/`config.concurrency`
+  fallback logic directly (no flag falls back to config value; non-positive, non-numeric,
+  and zero flag values all fall back to config rather than being passed to `pLimit`
+  as-is). `pnpm typecheck` and `pnpm test` clean (56 tests passing).
 
 ## Gotchas / drift from plan
 
@@ -217,14 +226,33 @@ test`.
   `{label: scenario.slug, hint: formatScenarioDetail(scenario)}` instead — `hint`
   renders inline next to the focused option, which is what `multiselect` actually
   supports for secondary detail text.
-- **Section 1 landed ahead of concurrency (section 2).** `run.ts` currently loops over
-  selected scenarios sequentially — the `p-limit` pool from section 2 will replace that
-  loop, not add alongside it. The backend-resolve-once part of section 2 is done early:
-  `run.ts` now calls `resolveBackend` + `isAvailable` once up front and passes the
-  resolved `backend` into `runScenario`, which dropped its own internal resolve/preflight
-  (and the now-unused `config` parameter) accordingly. Selecting N scenarios today
-  produces N independent findings files and no combined report — synthesis
-  (sections 3-6) isn't wired up yet.
+- **Section 1 landed ahead of concurrency (section 2); section 2 is now also done.**
+  `run.ts` pools selected scenarios through `pLimit(...)`, wrapping each pooled call in
+  try/catch (`errorFindings`, now exported from `run-scenario.ts`) so one scenario's
+  unexpected throw can't reject the whole `Promise.all` and lose the other scenarios'
+  results — matching the plan exactly. The backend-resolve-once part of section 2 was
+  done even earlier: `run.ts` calls `resolveBackend` + `isAvailable` once up front and
+  passes the resolved `backend` into `runScenario`, which dropped its own internal
+  resolve/preflight (and the now-unused `config` parameter) accordingly. Selecting N
+  scenarios today runs up to `--concurrency` (or `config.concurrency` if the flag is
+  omitted) at a time and produces N independent findings files — still no combined
+  report, since synthesis wiring (section 7) isn't hooked into `run.ts` yet.
+- **`--concurrency` lost its commander-level default** (`"2"` → none) so the fallback to
+  `config.concurrency` in `const limit = pLimit(...)` can actually be reached — commander
+  bakes a string default straight into `options.concurrency`, so `Number(options.concurrency)
+  || config.concurrency` as originally planned would never fall through to the config
+  value (it'd always see `"2"`). `run.ts` now treats an absent/non-positive/non-numeric
+  `--concurrency` the same way (falls back to `config.concurrency`, which already has its
+  own `.default(2)` in the zod schema) rather than trusting `Number(...) || ...` alone.
+- **Concurrency plumbing (free ports, `userDataDir`) verified under real concurrent load,
+  per the plan's acceptance note.** `test/manual/concurrent-run-scenario.ts` runs 5 fake
+  scenarios through the real `runScenario()` (real `launchBrowser()` + real
+  `startMcpBridge()` subprocesses) at `--concurrency 2`, with a fake `LlmBackend` that
+  never actually drives the page (so every scenario ends `ERROR` at the same-origin
+  guard — expected and asserted on) — isolating the concurrency plumbing from any real
+  LLM cost. Result: no port or `userDataDir` collisions across the run, and the
+  active-scenario counter never exceeded the configured limit of 2. No plumbing changes
+  were needed, confirming the plan's prediction.
 - **`ReportSectionSchema` turned out to be identical to `ScenarioFindingsSchema` — unified
   into one schema instead of two.** The plan (section 3 above, as originally written)
   had `ReportSectionSchema` as its own `screenNotes`-named object; the first pass at this

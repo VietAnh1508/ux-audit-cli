@@ -2,9 +2,10 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Command } from "commander";
 import { cancel, intro, multiselect, outro } from "@clack/prompts";
+import pLimit from "p-limit";
 import { resolveBackend } from "../backends/resolve.js";
 import { ConfigLoadError, loadAppOverview, loadConfig, loadScenarios } from "../config/loader.js";
-import { runScenario } from "../engine/run-scenario.js";
+import { errorFindings, runScenario } from "../engine/run-scenario.js";
 import { exitOnCancel } from "../utils/prompts.js";
 import { formatScenarioDetail } from "../utils/scenario-format.js";
 import type { ScenarioConfig } from "../types/index.js";
@@ -13,7 +14,7 @@ interface RunCommandOptions {
   scenario?: string;
   guideline: string;
   headed?: boolean;
-  concurrency: string;
+  concurrency?: string;
   output?: string;
 }
 
@@ -82,7 +83,7 @@ export function registerRunCommand(program: Command): void {
     .option("--scenario <slugs>", "comma-separated scenario slugs to run")
     .option("--guideline <name>", "accessibility guideline to apply", "w3c")
     .option("--headed", "run the browser headed instead of headless (default: headless)")
-    .option("--concurrency <n>", "max scenarios to run in parallel", "2")
+    .option("--concurrency <n>", "max scenarios to run in parallel (default: config.json's concurrency)")
     .option("--output <path>", "report output path")
     .addHelpText(
       "after",
@@ -93,8 +94,8 @@ export function registerRunCommand(program: Command): void {
         "  no --scenario, more than one on disk    -> interactive checkbox picker.\n" +
         "  no --scenario, zero on disk            -> errors, run `ux-audit scenario add` first.\n" +
         "\n" +
-        "Concurrency (--concurrency) and combined report synthesis aren't implemented yet " +
-        "(Phase 2, in progress) — each selected scenario runs sequentially and writes its own findings file.",
+        "Combined report synthesis isn't implemented yet (Phase 2, in progress) — " +
+        "each selected scenario runs (up to --concurrency at a time) and writes its own findings file.",
     )
     .action(async (options: RunCommandOptions) => {
       const cwd = process.cwd();
@@ -126,11 +127,29 @@ export function registerRunCommand(program: Command): void {
         process.exit(1);
       }
 
-      let hasFailure = false;
-      for (const scenario of selectedScenarios) {
-        console.log(`Running scenario "${scenario.slug}" against ${scenario.scenarioUrl ?? appOverview.url}...`);
-        const findings = await runScenario(scenario, appOverview, backend, { headed: options.headed });
+      const requestedConcurrency = options.concurrency ? Number(options.concurrency) : undefined;
+      const limit = pLimit(
+        requestedConcurrency !== undefined && requestedConcurrency > 0 ? requestedConcurrency : config.concurrency,
+      );
+      const allFindings = await Promise.all(
+        selectedScenarios.map((scenario) =>
+          limit(async () => {
+            console.log(`Running scenario "${scenario.slug}" against ${scenario.scenarioUrl ?? appOverview.url}...`);
+            try {
+              return await runScenario(scenario, appOverview, backend, { headed: options.headed });
+            } catch (error) {
+              return errorFindings(
+                scenario.slug,
+                `Scenario "${scenario.slug}" threw unexpectedly: ${(error as Error).message}`,
+              );
+            }
+          }),
+        ),
+      );
 
+      let hasFailure = false;
+      for (const [index, findings] of allFindings.entries()) {
+        const scenario = selectedScenarios[index]!;
         const outputPath =
           selectedScenarios.length === 1 && options.output
             ? options.output
