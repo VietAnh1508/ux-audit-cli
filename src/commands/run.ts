@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Command } from "commander";
 import { cancel, intro, multiselect, outro } from "@clack/prompts";
+import { resolveBackend } from "../backends/resolve.js";
 import { ConfigLoadError, loadAppOverview, loadConfig, loadScenarios } from "../config/loader.js";
 import { runScenario } from "../engine/run-scenario.js";
 import { exitOnCancel } from "../utils/prompts.js";
@@ -118,10 +119,17 @@ export function registerRunCommand(program: Command): void {
 
       const selectedScenarios = await selectScenarios(scenarios, options.scenario);
 
+      console.log("Checking LLM backend...");
+      const backend = await resolveBackend(config.llmBackend);
+      if (!(await backend.isAvailable())) {
+        console.error(`LLM backend "${backend.name}" is not available — not installed, or not logged in.`);
+        process.exit(1);
+      }
+
       let hasFailure = false;
       for (const scenario of selectedScenarios) {
         console.log(`Running scenario "${scenario.slug}" against ${scenario.scenarioUrl ?? appOverview.url}...`);
-        const findings = await runScenario(scenario, appOverview, config, { headed: options.headed });
+        const findings = await runScenario(scenario, appOverview, backend, { headed: options.headed });
 
         const outputPath =
           selectedScenarios.length === 1 && options.output

@@ -2,12 +2,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { runAxeScan, type AxeScanResult } from "../accessibility/axe-runner.js";
-import { resolveBackend } from "../backends/resolve.js";
-import type { LlmBackendRunOptions } from "../backends/types.js";
+import type { LlmBackend, LlmBackendRunOptions } from "../backends/types.js";
 import { checkUrlReachable, launchBrowser } from "../browser/launch.js";
 import { startMcpBridge, stopMcpBridge, type McpBridge } from "../browser/mcp-bridge.js";
 import { loadCredentials } from "../config/loader.js";
-import type { AppConfig, AppOverview, Finding, ScenarioConfig, ScenarioFindings } from "../types/index.js";
+import type { AppOverview, Finding, ScenarioConfig, ScenarioFindings } from "../types/index.js";
 import { readAndValidateFindings } from "./findings-handoff.js";
 
 // Guideline presets (built-in variants, custom checklists) are Phase 3
@@ -65,18 +64,10 @@ export interface RunScenarioOptions {
 export async function runScenario(
   scenario: ScenarioConfig,
   appOverview: AppOverview,
-  config: AppConfig,
+  backend: LlmBackend,
   options: RunScenarioOptions = {},
 ): Promise<ScenarioFindings> {
-  console.log("→ Checking LLM backend and app URL...");
-  const backend = await resolveBackend(config.llmBackend);
-  if (!(await backend.isAvailable())) {
-    return errorFindings(
-      scenario.slug,
-      `LLM backend "${backend.name}" is not available — not installed, or not logged in.`,
-    );
-  }
-
+  console.log("→ Checking app URL...");
   const url = scenario.scenarioUrl ?? appOverview.url;
   if (!(await checkUrlReachable(url))) {
     return errorFindings(scenario.slug, `${url} is not reachable.`);

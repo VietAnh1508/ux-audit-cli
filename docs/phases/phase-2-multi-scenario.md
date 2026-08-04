@@ -218,10 +218,13 @@ test`.
   renders inline next to the focused option, which is what `multiselect` actually
   supports for secondary detail text.
 - **Section 1 landed ahead of concurrency (section 2).** `run.ts` currently loops over
-  selected scenarios sequentially and re-resolves the backend per scenario — section 2
-  (`p-limit` pool, resolve backend once) will replace that loop, not add alongside it.
-  Selecting N scenarios today produces N independent findings files and no combined
-  report — synthesis (sections 3-6) isn't wired up yet.
+  selected scenarios sequentially — the `p-limit` pool from section 2 will replace that
+  loop, not add alongside it. The backend-resolve-once part of section 2 is done early:
+  `run.ts` now calls `resolveBackend` + `isAvailable` once up front and passes the
+  resolved `backend` into `runScenario`, which dropped its own internal resolve/preflight
+  (and the now-unused `config` parameter) accordingly. Selecting N scenarios today
+  produces N independent findings files and no combined report — synthesis
+  (sections 3-6) isn't wired up yet.
 - **`ReportSectionSchema` turned out to be identical to `ScenarioFindingsSchema` — unified
   into one schema instead of two.** The plan (section 3 above, as originally written)
   had `ReportSectionSchema` as its own `screenNotes`-named object; the first pass at this
