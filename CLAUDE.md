@@ -42,6 +42,13 @@ Anthropic API directly.
 - Run `pnpm typecheck` after changes — the stub pattern above only holds together if
   the whole tree still typechecks.
 
+## Git workflow
+
+- Commit directly on `main` by default, including when `main` is the current branch —
+  do not create a `feature/`/`bugfix/`/etc. branch first. Only branch when the user
+  explicitly says to (e.g. "branch first", "create a branch for this"). This overrides
+  the harness's general default of branching before committing on the default branch.
+
 ## Testing interactive (`@clack/prompts`) commands manually
 
 - `tmp/` (gitignored) is scratch space for manually exercising CLI commands against a
