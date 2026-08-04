@@ -369,7 +369,11 @@ Write ONLY the JSON object, matching this shape exactly:
 }
 \`\`\`
 
-- "crossScenarioFindings" is ONLY for issues that appear in 2 or more scenarios — same underlying problem judged by element+dimension, not exact wording. "appearsIn" must list at least 2 of the scenario slugs named above ("Scenario: <slug>"). Do not include findings that only appear in one scenario — those stay in that scenario's own section, which you are not writing.
+- "crossScenarioFindings" is ONLY for issues that appear in 2 or more scenarios — same underlying problem judged by element+dimension, not exact wording. "appearsIn" must list at least 2 of the scenario slugs named above ("Scenario: <slug>"). Do not include findings that only appear in one scenario — those stay in that scenario's own section, which you are not writing.${
+    scenarioFindings.length < 2
+      ? ` Only one scenario ("${scenarioFindings[0]?.scenarioSlug}") was audited this run, so cross-scenario comparison is impossible — "crossScenarioFindings" MUST be an empty array.`
+      : ""
+  }
 - "quickWins" and "featureSuggestions" are report-level, already-deduplicated lists spanning every scenario above — not per-scenario.
 - Do not invent findings that aren't grounded in the scenario findings above.
 `;

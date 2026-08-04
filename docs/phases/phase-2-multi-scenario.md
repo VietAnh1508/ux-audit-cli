@@ -1,7 +1,11 @@
 # Phase 2 — Multi-scenario + picker + report synthesis + concurrency
 
-Status: **not started**. See [`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) for
-current overall status.
+Status: **done**. Sections 1-7 implemented and verified (per-section testing evidence
+below); the phase's full 3-scenario (2 passing, 1 seeded to fail) end-to-end walkthrough
+against a real target app was not separately re-run, but each section's own real-backend
+smoke test (concurrency, synthesis dedup, single-scenario synthesis) already covers the
+pieces it would have exercised together. See
+[`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) for current overall status.
 
 ## Plan
 
@@ -213,6 +217,20 @@ test`.
   fallback logic directly (no flag falls back to config value; non-positive, non-numeric,
   and zero flag values all fall back to config rather than being passed to `pLimit`
   as-is). `pnpm typecheck` and `pnpm test` clean (56 tests passing).
+- Section 7 (wiring `synthesizeReport`/`renderMarkdown` into `run.ts`) — `pnpm typecheck`
+  and `pnpm test` clean (56 tests, unchanged — this section is wiring, not new unit-tested
+  logic). Manually confirmed the single-scenario synthesis path (the most common
+  invocation, previously unexercised by `test/manual/synthesize-report.ts`'s 3-fixture
+  run) against the real `claude` CLI: `synthesizeReport()` with just the `login` fixture
+  produced `crossScenarioFindings: []` and a report that passed `ReportSchema.parse()`,
+  confirming the new N=1 prompt guardrail in `buildSynthesisPrompt` works. The plan's
+  literal 3-scenario, real-target-app CLI walkthrough (`ux-audit run` end to end
+  against a live app) wasn't separately re-run in this session — but its constituent
+  pieces already were, each against the real `claude` CLI: section 2's concurrency
+  pool under real concurrent `runScenario()` load, section 5's multi-scenario dedup
+  (`login`/`checkout` sharing a finding, `checkout-mobile` `BLOCKED`), and this
+  section's single-scenario path above. Judged sufficient to close the phase; a full
+  live-app walkthrough remains a good manual sanity check before a real release.
 
 ## Gotchas / drift from plan
 
@@ -235,8 +253,29 @@ test`.
   passes the resolved `backend` into `runScenario`, which dropped its own internal
   resolve/preflight (and the now-unused `config` parameter) accordingly. Selecting N
   scenarios today runs up to `--concurrency` (or `config.concurrency` if the flag is
-  omitted) at a time and produces N independent findings files — still no combined
-  report, since synthesis wiring (section 7) isn't hooked into `run.ts` yet.
+  omitted) at a time and produces N independent findings files, then synthesizes and
+  writes one combined report (section 7, now wired up).
+- **Section 7 changed `--output`'s meaning.** Phase 1 used `--output` (single-scenario
+  only) as the destination for that scenario's *findings JSON*. Now that synthesis
+  writes a combined report, `--output` picks the *report's* destination instead —
+  findings JSON unconditionally goes to `<outputDir>/<slug>-findings.json` regardless of
+  scenario count or `--output`. Precedence for the report path, matching the plan:
+  `--output` → (single scenario only) that scenario's `output` field → `<outputDir>/UX_AUDIT.md`.
+- **All-non-OK runs skip synthesis.** Not called for by the plan, but if every selected
+  scenario ends `ERROR`/`BLOCKED` there's nothing for the model to synthesize from —
+  `run.ts` now checks `allFindings.every(f => f.status !== "OK")` and skips the
+  `synthesizeReport` call entirely (still exits 1, still leaves the per-scenario findings
+  JSON on disk) rather than paying for a real `claude -p` call over empty data.
+- **Single-scenario synthesis needed an explicit prompt guardrail.** `ReportSchema`'s
+  `CrossScenarioFindingSchema` requires `appearsIn.length >= 2`, which is unsatisfiable
+  when only one scenario was audited — without an explicit instruction, a model that
+  hallucinated a single-scenario "cross-scenario" finding would fail validation, retry,
+  fail again, and `synthesizeReport` would throw on the single-scenario case (the most
+  common invocation). `buildSynthesisPrompt` in `claude-code.ts` now adds an explicit
+  line when `scenarioFindings.length < 2` stating cross-scenario comparison is
+  impossible and `crossScenarioFindings` MUST be `[]`. Confirmed against the real
+  `claude` CLI with the `login` fixture alone: `crossScenarioFindings: []`, full report
+  passed `ReportSchema.parse()`.
 - **`--concurrency` lost its commander-level default** (`"2"` → none) so the fallback to
   `config.concurrency` in `const limit = pLimit(...)` can actually be reached — commander
   bakes a string default straight into `options.concurrency`, so `Number(options.concurrency)

@@ -6,6 +6,8 @@ import pLimit from "p-limit";
 import { resolveBackend } from "../backends/resolve.js";
 import { ConfigLoadError, loadAppOverview, loadConfig, loadScenarios } from "../config/loader.js";
 import { errorFindings, runScenario } from "../engine/run-scenario.js";
+import { renderMarkdown } from "../report/render.js";
+import { synthesizeReport } from "../report/synthesize.js";
 import { exitOnCancel } from "../utils/prompts.js";
 import { formatScenarioDetail } from "../utils/scenario-format.js";
 import type { ScenarioConfig } from "../types/index.js";
@@ -94,8 +96,10 @@ export function registerRunCommand(program: Command): void {
         "  no --scenario, more than one on disk    -> interactive checkbox picker.\n" +
         "  no --scenario, zero on disk            -> errors, run `ux-audit scenario add` first.\n" +
         "\n" +
-        "Combined report synthesis isn't implemented yet (Phase 2, in progress) — " +
-        "each selected scenario runs (up to --concurrency at a time) and writes its own findings file.",
+        "Report output:\n" +
+        "  --output <path>                        -> write the combined report here.\n" +
+        "  no --output, single scenario, scenario has an `output` field -> write there.\n" +
+        "  otherwise                              -> <outputDir>/UX_AUDIT.md.",
     )
     .action(async (options: RunCommandOptions) => {
       const cwd = process.cwd();
@@ -148,19 +152,47 @@ export function registerRunCommand(program: Command): void {
       );
 
       let hasFailure = false;
+      const findingsPaths: string[] = [];
       for (const [index, findings] of allFindings.entries()) {
         const scenario = selectedScenarios[index]!;
-        const outputPath =
-          selectedScenarios.length === 1 && options.output
-            ? options.output
-            : path.join(config.outputDir, `${scenario.slug}-findings.json`);
-        await mkdir(path.dirname(outputPath), { recursive: true });
-        await writeFile(outputPath, `${JSON.stringify(findings, null, 2)}\n`, "utf-8");
+        const findingsPath = path.join(config.outputDir, `${scenario.slug}-findings.json`);
+        await mkdir(path.dirname(findingsPath), { recursive: true });
+        await writeFile(findingsPath, `${JSON.stringify(findings, null, 2)}\n`, "utf-8");
+        findingsPaths.push(findingsPath);
 
-        console.log(`Findings written to ${outputPath} (status: ${findings.status}).`);
+        console.log(`Findings written to ${findingsPath} (status: ${findings.status}).`);
         if (findings.status !== "OK") {
           hasFailure = true;
         }
+      }
+
+      const reportOutputPath =
+        options.output ??
+        (selectedScenarios.length === 1 ? selectedScenarios[0]!.output : undefined) ??
+        path.join(config.outputDir, "UX_AUDIT.md");
+
+      if (allFindings.every((findings) => findings.status !== "OK")) {
+        console.error(
+          `Every scenario failed or was blocked — skipping report synthesis (leaving ${reportOutputPath} untouched, ` +
+            "so a report from a previous run there is now stale). See the findings JSON files above for details.",
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      console.log("Synthesizing combined report...");
+      try {
+        const report = await synthesizeReport(backend, findingsPaths, appOverview);
+        const mode = selectedScenarios.length === 1 ? "single" : "multi";
+        const markdown = renderMarkdown(report, mode);
+
+        await mkdir(path.dirname(reportOutputPath), { recursive: true });
+        await writeFile(reportOutputPath, `${markdown}\n`, "utf-8");
+
+        console.log(`Report written to ${reportOutputPath}.`);
+      } catch (error) {
+        console.error(`Report synthesis failed: ${(error as Error).message}`);
+        hasFailure = true;
       }
 
       if (hasFailure) {

@@ -46,7 +46,8 @@ ux-audit run                                 # walk the browser through it, writ
    - **Session** — `fresh` (log out first) or `authenticated` (silent sign-in);
      only relevant alongside `Auth`.
    - **Viewport** — `desktop` (default) or `mobile`.
-   - **Output** — where the report/findings get written; defaults to the project root.
+   - **Output** — where the combined report gets written (single-scenario runs only);
+     defaults to `config.json`'s `outputDir`/`UX_AUDIT.md`.
 
    `ux-audit scenario list` / `ux-audit scenario remove` manage what's on disk.
 3. **`ux-audit run`** — runs Playwright + axe-core plus an agentic "drive the browser,
@@ -54,12 +55,13 @@ ux-audit run                                 # walk the browser through it, writ
    `claude` CLI on PATH rather than calling an API directly (that's the one hard
    requirement — get `claude` logged in first). With exactly one scenario on disk it
    runs immediately; with more than one it prompts an interactive checkbox picker
-   (or skip the prompt with `--scenario a,b`). Each scenario writes its own
-   `<slug>-findings.json` next to the project root (or wherever `--output` /
-   `config.json`'s `outputDir` point). `--headed` runs the browser visibly instead of
-   headless; `--concurrency` and a single synthesized multi-scenario markdown report
-   aren't wired into `run` yet (Phase 2, in progress) — today it's one JSON findings
-   file per scenario, run sequentially.
+   (or skip the prompt with `--scenario a,b`), running up to `--concurrency` (or
+   `config.json`'s `concurrency`) at a time. Each scenario writes its own
+   `<slug>-findings.json` under `outputDir`, then all of them are synthesized into one
+   combined markdown report — cross-scenario findings deduped and attributed to every
+   scenario they showed up in — written to `--output`, or (single-scenario runs) that
+   scenario's **Output** field, or `outputDir/UX_AUDIT.md`. `--headed` runs the browser
+   visibly instead of headless.
 
 Not implemented yet: `ux-audit guideline` (custom accessibility rule presets beyond the
 built-in `w3c`) and the codex/gemini/api backends — see

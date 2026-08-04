@@ -1,23 +1,19 @@
 # ux-audit CLI — Implementation Plan
 
-**Status: Phase 2, in progress — scenario selection done (`--scenario` comma-separated
-slugs with unknown-slug validation, `@clack/prompts` multi-select picker when >1
-scenario is on disk), manually exercised against a scratch `.ux-audit/` — see
+**Status: Phase 2, done — scenario selection (`--scenario` comma-separated slugs with
+unknown-slug validation, `@clack/prompts` multi-select picker when >1 scenario is on
+disk), report synthesis (`report/schema.ts` extensions, generalized
+`findings-handoff.ts`, `ClaudeCodeBackend.synthesizeReport()`, `report/synthesize.ts`),
+`report/render.ts` (`renderMarkdown`, single + multi mode, unit tested), concurrency
+(`p-limit` pool in `run.ts`, backend resolved once), and combined report output wiring
+(findings JSON always goes to `<outputDir>/<slug>-findings.json`, `--output` picks the
+combined report destination, all-non-OK runs skip synthesis) are all done — see
 [`phases/phase-2-multi-scenario.md`](./phases/phase-2-multi-scenario.md#testing-evidence).
-Report synthesis is also done — `report/schema.ts` extensions, generalized
-`findings-handoff.ts`, `ClaudeCodeBackend.synthesizeReport()`, and `report/synthesize.ts`
-— smoke-tested end-to-end against the real `claude` CLI (two scenarios sharing a
-cross-scenario finding, correctly deduped). `report/render.ts` (`renderMarkdown`, single +
-multi mode) is also done, unit tested. Concurrency is also done — `p-limit` pool in
-`run.ts` (backend already resolved once), manually verified against real concurrent
-`launchBrowser()`/mcp-bridge port + userDataDir isolation — see
-[`phases/phase-2-multi-scenario.md`](./phases/phase-2-multi-scenario.md#testing-evidence).
-Next: wiring combined report output into `run.ts` (section 7). Packaging for a teammate
-test build was
-pulled forward from Phase 5 (tarball install, not git-URL; release cutting is now
-automated via `.github/workflows/release-beta.yml` on tag push — see
+Packaging for a teammate test build was pulled forward from Phase 5 (tarball install,
+not git-URL; release cutting is now automated via
+`.github/workflows/release-beta.yml` on tag push — see
 [`phases/phase-5-polish.md`](./phases/phase-5-polish.md) Gotchas) so it could ship before
-the rest of Phase 2 is done.**
+the rest of Phase 2 was done.**
 (update this line in the same commit as whatever task you just closed out)
 
 This is the execution checklist. For _why_ each decision was made, see
@@ -102,7 +98,7 @@ close out a task.
   - [x] `src/accessibility/axe-runner.ts`
   - [x] `src/engine/run-scenario.ts`
   - [x] `src/commands/run.ts` (single scenario, no picker)
-- [ ] **Phase 2 — Multi-scenario + picker + report synthesis + concurrency** — in progress.
+- [x] **Phase 2 — Multi-scenario + picker + report synthesis + concurrency** — done.
       → [`phases/phase-2-multi-scenario.md`](./phases/phase-2-multi-scenario.md)
   - [x] `src/commands/run.ts` — `--scenario` parsing + multi-select picker (comma-separated
         slugs with unknown-slug validation, checkbox picker when >1 scenario is on disk,
@@ -120,7 +116,7 @@ close out a task.
   - [x] `src/engine/run-scenario.ts` — accept a pre-resolved `backend` param
   - [x] `package.json` — add `p-limit` dependency
   - [x] `src/commands/run.ts` — `p-limit` concurrency pool
-  - [ ] `src/commands/run.ts` — combined report output wiring
+  - [x] `src/commands/run.ts` — combined report output wiring
 - [ ] **Phase 3 — Guideline presets + custom rules** — not started.
       → [`phases/phase-3-guideline-presets.md`](./phases/phase-3-guideline-presets.md)
 - [ ] **Phase 4 — Additional LLM backends** — not started.
