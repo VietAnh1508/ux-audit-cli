@@ -50,8 +50,14 @@ _Not started._
     npm version prerelease --preid=beta --no-git-tag-version
     git commit -am "chore: release v$(node -p "require('./package.json').version")"
     git tag "v$(node -p "require('./package.json').version")"
-    git push --follow-tags
+    git push origin main "v$(node -p "require('./package.json').version")"
     ```
+    (`git push --follow-tags` looks like it should work here but doesn't — it only
+    pushes *annotated* tags, and `git tag` without `-a` makes a lightweight one, so the
+    tag silently never reaches GitHub. Push it explicitly, as above — confirmed by
+    hitting this exact silent failure while verifying the pipeline end to end for
+    `v0.1.0-beta.2`.)
+
     The workflow checks the pushed tag matches `package.json`'s version (fails fast if
     you forgot to bump), runs `typecheck` + `test`, builds, packs, and publishes a
     GitHub Release with the tarball attached under a **fixed asset name**
@@ -66,7 +72,7 @@ _Not started._
     metadata (separate from the `-beta.N` semver string) — the workflow does not pass
     `--prerelease` to `gh release create`, on purpose, since every release cut right now
     is "the current thing to test." Revisit if this ever needs a separate stable channel.
-  - Teammate prerequisites (not yet in a README since one doesn't exist): Node ≥ 20, an
+  - Teammate prerequisites are now in `README.md`'s "Beta builds" section: Node ≥ 20, an
     already-authenticated `claude` CLI on PATH (see the ENOENT/not-logged-in handling in
     `src/backends/claude-code.ts`), and `npx playwright install chromium` run once after
     installing — Playwright's browser binaries are a separate download and this repo's
