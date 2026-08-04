@@ -25,4 +25,37 @@ _Not started._
 
 ## Gotchas / drift from plan
 
-_None yet._
+- **Teammate test build (pulled forward, done).** The full Phase 5 acceptance criterion
+  below (clean-machine `npx ux-audit-cli` walkthrough via the published README) is still
+  not started — but a teammate needed something installable before that, so the
+  packaging half was pulled forward on its own:
+  - `package.json` gained `"files": ["dist"]`, `"scripts.prepare": "tsc -p ."`,
+    `"scripts.pack": "pnpm build && npm pack"`, `"private": true` (blocks accidental
+    `npm publish` before this phase deliberately does that — doesn't block `npm pack` or
+    tarball installs), and a version bump to `0.1.0-beta.1` (semver prerelease, bump the
+    trailing number each time a new build goes out) so re-shared builds are
+    identifiable.
+  - Distribution mechanism is a **pre-built tarball**, not a git-URL install. Run
+    `pnpm pack` to produce `ux-audit-cli-<version>.tgz`, then either hand the file
+    directly or upload it as a GitHub Release asset on the (public) repo so the teammate
+    can `npm install -g <release-asset-url>` without a manual file transfer.
+  - **`npm install -g github:VietAnh1508/ux-audit-cli` does not work — don't re-attempt
+    this without addressing the root cause.** Verified against npm 11.18.0: npm's
+    git-dependency install flow places the root package and immediately runs its
+    `prepare` script *before* installing that package's own `devDependencies` (confirmed
+    via `.npm/_logs`), so `prepare: "tsc -p ."` fails with `sh: tsc: command not found`
+    (exit 127). A tarball install never runs `prepare` at all (npm assumes a packed
+    tarball is already built), which is why that path works instead.
+  - Teammate prerequisites (not yet in a README since one doesn't exist): Node ≥ 20, an
+    already-authenticated `claude` CLI on PATH (see the ENOENT/not-logged-in handling in
+    `src/backends/claude-code.ts`), and `npx playwright install chromium` run once after
+    installing — Playwright's browser binaries are a separate download and this repo's
+    `pnpm-workspace.yaml` `allowBuilds` allowlist doesn't cover Playwright's postinstall,
+    so don't rely on it firing automatically.
+  - What's actually testable right now: `init`/`app`/`scenario`/`run` for a **single**
+    scenario (Phase 1). Multi-scenario picker works but the combined report + concurrency
+    pool are still open Phase 2 items — tell the teammate to expect that edge to be
+    rough. `guideline` (Phase 3) and the codex/gemini/api backends (Phase 4) are
+    intentionally unimplemented stubs, not bugs to report.
+  - Still explicitly open for this phase, not covered by the above: the real
+    `README.md`, the error-message audit, and actually publishing to the npm registry.

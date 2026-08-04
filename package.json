@@ -1,15 +1,21 @@
 {
   "name": "ux-audit-cli",
-  "version": "0.0.0",
+  "version": "0.1.0-beta.1",
+  "private": true,
   "description": "Automated UX audit CLI — Playwright + axe-core, driven by your existing coding CLI (Claude Code, Codex, Gemini CLI)",
   "type": "module",
   "packageManager": "pnpm@11.9.0",
   "bin": {
     "ux-audit": "./dist/cli.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "tsx src/cli.ts",
     "build": "tsc -p .",
+    "prepare": "tsc -p .",
+    "pack": "pnpm build && npm pack",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest"

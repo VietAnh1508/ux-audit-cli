@@ -9,7 +9,10 @@ Report synthesis is also done — `report/schema.ts` extensions, generalized
 — smoke-tested end-to-end against the real `claude` CLI (two scenarios sharing a
 cross-scenario finding, correctly deduped). `report/render.ts` (`renderMarkdown`, single +
 multi mode) is also done, unit tested. Next: concurrency (`p-limit` pool, resolve backend
-once), then wiring combined output in `run.ts`.**
+once), then wiring combined output in `run.ts`. Packaging for a teammate test build was
+pulled forward from Phase 5 (tarball install, not git-URL — see
+[`phases/phase-5-polish.md`](./phases/phase-5-polish.md) Gotchas) so it could ship before
+the rest of Phase 2 is done.**
 (update this line in the same commit as whatever task you just closed out)
 
 This is the execution checklist. For _why_ each decision was made, see
