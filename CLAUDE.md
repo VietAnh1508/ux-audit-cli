@@ -49,6 +49,33 @@ Anthropic API directly.
   explicitly says to (e.g. "branch first", "create a branch for this"). This overrides
   the harness's general default of branching before committing on the default branch.
 
+## Cutting a beta release
+
+Cutting a release is a deliberate local step, never automatic on push to `main`.
+Pushing a matching `v*` tag triggers `.github/workflows/release-beta.yml`, which
+verifies the tag matches `package.json`'s version, runs `typecheck` + `test`, builds,
+packs, and publishes a GitHub Release with the tarball attached as a fixed asset name
+(`ux-audit-cli.tgz`) so `npm install -g
+https://github.com/VietAnh1508/ux-audit-cli/releases/latest/download/ux-audit-cli.tgz`
+(documented in `README.md`) keeps working across every future beta.
+
+```
+npm version prerelease --preid=beta --no-git-tag-version
+git commit -am "chore: release v$(node -p "require('./package.json').version")"
+git tag "v$(node -p "require('./package.json').version")"
+git push origin main "v$(node -p "require('./package.json').version")"
+```
+
+- Push the tag explicitly as above — `git push --follow-tags` only pushes *annotated*
+  tags, and `git tag` here makes a lightweight one, so the tag silently never reaches
+  GitHub and the workflow never fires.
+- Releases are intentionally **not** flagged `--prerelease` in GitHub's release
+  metadata (separate from the `-beta.N` semver string), so GitHub's `/releases/latest`
+  alias keeps resolving — there's no separate stable channel yet.
+- `npm install -g github:VietAnh1508/ux-audit-cli` (git-URL install) is known broken —
+  don't re-attempt it. See `docs/phases/phase-5-polish.md` for the root cause and full
+  rationale.
+
 ## Testing interactive (`@clack/prompts`) commands manually
 
 - `tmp/` (gitignored) is scratch space for manually exercising CLI commands against a
